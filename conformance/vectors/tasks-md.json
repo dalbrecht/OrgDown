@@ -50,7 +50,6 @@
     {"id": "fix-leaves-empty-title-unwrapped", "op": "fix", "profile": "tasks-md", "input": "## Active\n* [X] @priority:1", "expect": "## Active\n- [x] @priority:1"},
     {"id": "complete-empty-title-is-not-struck", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] @priority:1\n## Done", "line": 2, "today": "2026-11-04", "expect": "## Active\n## Done\n- [x] completed:2026-11-04"},
     {"id": "fix-folds-tab-indented-note", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n\t- note", "expect": "## Active\n- [ ] **T** - note"},
-    {"id": "progress-uses-effective-state", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] **T**\n  - [ ] sub", "expect": {"tasks": [{"progress": {"done": 1, "total": 1}}, {"state": "done"}]}},
     {"id": "waiting-with-no-reason-outside-waiting-on", "op": "parse", "profile": "tasks-md", "input": "## Someday\n- [ ] **T**\n  - [x] sub @status:waiting", "expect": {"tasks": [{"state": "someday"}, {"state": "done"}]}},
     {"id": "add-creates-a-named-section", "op": "add", "profile": "tasks-md", "input": "# Tasks\n", "section": "Ideas", "title": "New", "tokens": [], "expect": "# Tasks\n\n## Ideas\n- [ ] **New**\n"},
     {"id": "add-refuses-token-shaped-note", "op": "add", "profile": "tasks-md", "input": "## Active\n", "title": "New", "note": "see https://x.y", "tokens": [], "expect": {"refused": true}},
@@ -65,6 +64,10 @@
     {"id": "complete-rewrites-the-line-first", "op": "complete", "profile": "tasks-md", "input": "## Active\n - [ ] **W** - @every:1w due:2026-11-04\n - a note", "line": 2, "today": "2026-11-04", "expect": "## Active\n- [x] **~~W~~** - due:2026-11-04 completed:2026-11-04\n - a note\n- [ ] **W** - @every:1w due:2026-11-11"},
     {"id": "complete-empty-title-before-a-trailer", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] <!-- id:a -->", "line": 2, "today": "2026-11-04", "expect": "## Active\n- [x] completed:2026-11-04 <!-- id:a -->"},
     {"id": "fix-joins-a-quoted-token-with-single-spaces", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] @x-a:\"b   c\"", "expect": "## Active\n- [ ] @x-a:\"b c\""},
-    {"id": "waiting-status-in-waiting-on-is-not-an-extra", "op": "parse", "profile": "tasks-md", "input": "## Waiting On\n- [x] **T** - @status:waiting", "expect": {"tasks": [{"state": "done", "extraTokens": []}]}}
+    {"id": "waiting-status-in-waiting-on-is-not-an-extra", "op": "parse", "profile": "tasks-md", "input": "## Waiting On\n- [x] **T** - @status:waiting", "expect": {"tasks": [{"state": "done", "extraTokens": []}]}},
+    {"id": "progress-uses-effective-state", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] **T**\n  - [x] a\n  - [ ] b", "expect": {"tasks": [{"progress": {"done": 1, "total": 2}}, {"state": "done"}, {"state": "next"}]}},
+    {"id": "open-subtask-in-done-stays-open", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n  - [ ] a\n## Done\n- [x] **U**\n  - [ ] b", "expect": {"tasks": [{"state": "next"}, {"state": "next"}, {"state": "done"}, {"state": "next"}]}},
+    {"id": "fix-keeps-bullets-under-an-empty-title", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] due:2026-11-04\n  - Call Alice", "expect": "## Active\n- [ ] due:2026-11-04\n  - Call Alice"},
+    {"id": "to-core-keeps-legacy-project", "op": "toCore", "input": "## Active\n- [ ] **Ship** - @project:Work", "expect": "## Active\n- [ ] Ship @status:next @project:Work"}
   ]
 }
