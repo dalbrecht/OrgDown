@@ -27,7 +27,8 @@ const itemsOf = (docs: readonly Doc[]): Item[] => docs.flatMap((doc) => doc.task
 const row = ({ task, doc }: Item, annotations: readonly string[] = [], prefix = ""): string => {
   const suffix = annotations.length === 0 ? "" : ` — ${annotations.join(" · ")}`;
   const location = `[${doc.path}:${task.line}](${doc.path.replaceAll(" ", "%20")})`;
-  return `- ${prefix}${task.title}${suffix} (${location})`;
+  const title = prefix === "" ? task.title.replace(/^(\[[ xX]\])(?=\s|$)/, "\\$1") : task.title;
+  return `- ${prefix}${title}${suffix} (${location})`;
 };
 
 const dueNote = (task: Task): string[] => (task.due === null ? [] : [`due ${task.due}`]);
