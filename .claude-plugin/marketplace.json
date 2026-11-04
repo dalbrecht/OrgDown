@@ -1,0 +1,12 @@
+{
+  "name": "orgdown",
+  "owner": { "name": "OrgDown" },
+  "description": "Skills and tools for OrgDown, Org mode's task model in plain Markdown.",
+  "plugins": [
+    {
+      "name": "orgdown",
+      "source": "./plugin",
+      "description": "Read, write and validate OrgDown files, keep TASKS.md safe for the dashboard, and build agendas."
+    }
+  ]
+}

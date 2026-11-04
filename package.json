@@ -4,11 +4,15 @@
   "description": "Reference CLI for OrgDown: Org mode's task and agenda model in plain Markdown.",
   "license": "MIT",
   "type": "module",
-  "bin": { "orgdown": "plugin/bin/orgdown.mjs" },
-  "engines": { "node": ">=22" },
+  "bin": {
+    "orgdown": "plugin/bin/orgdown.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "build": "tsc -b && esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=plugin/bin/orgdown.mjs --banner:js='#!/usr/bin/env node'",
+    "build": "tsc --noEmit && esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=plugin/bin/orgdown.mjs --banner:js='#!/usr/bin/env node'",
     "test": "vitest run --coverage",
     "lint": "tsc --noEmit && prettier --check ."
   },

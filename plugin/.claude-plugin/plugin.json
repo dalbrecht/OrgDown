@@ -1,0 +1,9 @@
+{
+  "name": "orgdown",
+  "version": "0.1.0",
+  "description": "Org mode's task and agenda model in plain Markdown: read, write and validate OrgDown, keep TASKS.md working with the dashboard, and build agendas.",
+  "author": { "name": "OrgDown" },
+  "license": "MIT",
+  "homepage": "https://github.com/dalbrecht/OrgDown",
+  "keywords": ["org-mode", "markdown", "tasks", "agenda", "gtd"]
+}
