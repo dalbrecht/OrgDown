@@ -5,6 +5,7 @@ build:
 	pnpm build
 test:
 	pnpm test
+	python3 -I implementations/python/run_vectors.py > /dev/null
 lint:
 	pnpm lint
 fmt:
