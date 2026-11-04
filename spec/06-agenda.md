@@ -83,7 +83,7 @@ Rows go into the first group that applies, and each task appears once:
 | `habits`  | Open `@habit:yes` tasks, with the last 14 days of completions and the streak                                                                                                                                                                                     |
 
 `sort` is a comma-separated list of `due`, `defer`, `priority`, `title` or `file`. Tasks missing
-the key sort last. Ties keep input order. `match` narrows any view except `day` and `clock`, where
+the key sort last. Ties keep input order. `days` is 1 to 366, and anything else is an error. `match` narrows any view except `day` and `clock`, where
 it's an error. Other attributes a view doesn't use are ignored. `from` and `to` take the same date
 forms as queries, and default to `today-7d` and `today`.
 
@@ -167,8 +167,8 @@ Anything outside the regions is yours, and it's never touched.
 <!-- /orgdown:view -->
 ```
 
-- **Sources** are a YAML block list of strings at `agenda.sources`, each optionally quoted. Other
-  front matter is ignored, and no other YAML form is required. They're globs relative to the file,
+- **Sources** are a YAML block list of strings at `agenda.sources`, each optionally quoted, where
+  `sources:` is indented under a top-level `agenda:` key. Other front matter is ignored, and no other YAML form is required. They're globs relative to the file,
   read in lexical path order within each glob. A file
   appears once, at its first match. Each source is read with the profile that fits its name. The
   Agenda MD file itself is always excluded. The default is `**/*.md`.
