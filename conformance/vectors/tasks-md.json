@@ -1,0 +1,43 @@
+{
+  "module": "tasks-md",
+  "op": "mixed",
+  "cases": [
+    { "id": "bold-title-and-note", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **Send the deck** - for Priya @priority:1 due:2026-11-07", "expect": { "tasks": [{ "title": "Send the deck", "note": "for Priya", "state": "next", "priority": 1, "due": "2026-11-07" }] } },
+    { "id": "bold-title-only", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T**", "expect": { "tasks": [{ "title": "T", "note": "", "state": "next" }] } },
+    { "id": "after-a-dashboard-save", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T** - @priority:1", "expect": { "tasks": [{ "title": "T", "note": "", "priority": 1 }] } },
+    { "id": "bold-then-tokens", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T** @priority:1", "expect": { "tasks": [{ "title": "T", "note": "", "priority": 1 }] } },
+    { "id": "unbolded-title-is-kept", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] Plain words", "expect": { "tasks": [{ "title": "Plain words", "note": "" }] } },
+    { "id": "section-sets-state", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **a**\n## Waiting On\n- [ ] **b** - from finance\n## Someday\n- [ ] **c**\n## Done\n- [x] **d**", "expect": { "tasks": [{ "state": "next" }, { "state": "waiting", "waitingReason": "from finance" }, { "state": "someday" }, { "state": "done" }] } },
+    { "id": "section-name-ignores-case", "op": "parse", "profile": "tasks-md", "input": "## waiting on\n- [ ] **b** @waiting:\"Sam\"", "expect": { "tasks": [{ "state": "waiting", "waitingReason": "Sam" }] } },
+    { "id": "bold-section-heading", "op": "parse", "profile": "tasks-md", "input": "## **Someday**\n- [ ] **c**", "expect": { "tasks": [{ "state": "someday" }] } },
+    { "id": "other-section-uses-core-rules", "op": "parse", "profile": "tasks-md", "input": "## Ideas\n- [ ] **a**\n- [ ] **b** - @status:someday", "expect": { "tasks": [{ "state": "inbox" }, { "state": "someday" }] } },
+    { "id": "status-refines-active", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **a** - @status:blocked", "expect": { "tasks": [{ "state": "blocked" }] } },
+    { "id": "section-beats-stale-status", "op": "parse", "profile": "tasks-md", "input": "## Someday\n- [ ] **a** - @status:next", "expect": { "tasks": [{ "state": "someday" }] } },
+    { "id": "checked-box-in-active-is-done", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [x] **a**", "expect": { "tasks": [{ "state": "done" }] } },
+    { "id": "open-box-in-done-stays-done", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [ ] **a**", "expect": { "tasks": [{ "state": "done" }] } },
+    { "id": "trash-in-done", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] **a** - @status:trash", "expect": { "tasks": [{ "state": "trash" }] } },
+    { "id": "waiting-reason-fallback", "op": "parse", "profile": "tasks-md", "input": "## Waiting On\n- [ ] **a**", "expect": { "tasks": [{ "state": "waiting", "waitingReason": "unspecified" }] } },
+    { "id": "plugin-done-form", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] ~~Book the venue~~ (2026-11-02)", "expect": { "tasks": [{ "title": "Book the venue", "completed": "2026-11-02", "state": "done" }] } },
+    { "id": "plugin-done-form-after-a-save", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] **~~Book the venue~~ (2026-11-02)**", "expect": { "tasks": [{ "title": "Book the venue", "completed": "2026-11-02" }] } },
+    { "id": "strikethrough-in-bold", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] **~~Venue~~** - completed:2026-11-02", "expect": { "tasks": [{ "title": "Venue", "completed": "2026-11-02" }] } },
+    { "id": "tags-from-note", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T #a** - see #b", "expect": { "tasks": [{ "tags": ["a", "b"] }] } },
+    { "id": "subtask-keeps-section-state", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n  - [ ] sub\n  - [x] done sub", "expect": { "tasks": [{ "state": "next" }, { "state": "next", "title": "sub", "parent": 1 }, { "state": "done" }] } },
+
+    { "id": "complete-moves-to-done", "op": "complete", "profile": "tasks-md", "input": "# Tasks\n\n## Active\n\n- [ ] **Send** - for Priya @priority:1 due:2026-11-07\n  - [ ] sub\n- [ ] **Other**\n\n## Done\n\n- [x] **~~Old~~** - completed:2026-11-01\n", "line": 5, "today": "2026-11-04", "expect": "# Tasks\n\n## Active\n\n- [ ] **Other**\n\n## Done\n\n- [x] **~~Old~~** - completed:2026-11-01\n- [x] **~~Send~~** - for Priya due:2026-11-07 completed:2026-11-04\n  - [ ] sub\n" },
+    { "id": "complete-respawns-in-the-same-section", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] **Water** - @every:1w due:2026-11-04\n## Done", "line": 2, "today": "2026-11-04", "expect": "## Active\n- [ ] **Water** - @every:1w due:2026-11-11\n## Done\n- [x] **~~Water~~** - due:2026-11-04 completed:2026-11-04" },
+    { "id": "complete-without-a-done-section-stays-put", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] **T**", "line": 2, "today": "2026-11-04", "expect": "## Active\n- [x] **~~T~~** - completed:2026-11-04" },
+    { "id": "reopen-moves-to-active", "op": "reopen", "profile": "tasks-md", "input": "## Active\n- [ ] **a**\n## Done\n- [x] **~~T~~** - completed:2026-11-01", "line": 4, "expect": "## Active\n- [ ] **a**\n- [ ] **T**\n## Done" },
+
+    { "id": "fix-bolds-titles", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] Send the deck @priority:1", "expect": "## Active\n- [ ] **Send the deck** - @priority:1" },
+    { "id": "fix-separates-tokens", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] **T** @priority:1", "expect": "## Active\n- [ ] **T** - @priority:1" },
+    { "id": "fix-plugin-done-form", "op": "fix", "profile": "tasks-md", "input": "## Done\n- [x] ~~Venue~~ (2026-11-02)", "expect": "## Done\n- [x] **~~Venue~~** - completed:2026-11-02" },
+    { "id": "fix-folds-notes", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] **T** - for Sam due:2026-11-07\n  - remember the numbers", "expect": "## Active\n- [ ] **T** - for Sam; remember the numbers due:2026-11-07" },
+    { "id": "fix-normalizes-markers", "op": "fix", "profile": "tasks-md", "input": "## Active\n* [ ] **a**\n+ [X] **b**", "expect": "## Active\n- [ ] **a**\n- [x] **b**" },
+    { "id": "fix-is-a-fixed-point", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] **T** - note due:2026-11-07\n  - [ ] sub", "expect": "## Active\n- [ ] **T** - note due:2026-11-07\n  - [ ] sub" },
+
+    { "id": "to-core", "op": "toCore", "input": "# Tasks\n\n## Active\n\n- [ ] **Send** - for Priya due:2026-11-07\n  - [ ] sub\n\n## Waiting On\n\n- [ ] **Sign-off** - from finance\n\n## Done\n\n- [x] **~~Venue~~** - completed:2026-11-02\n", "expect": "# Tasks\n\n## Active\n\n- [ ] Send - for Priya @status:next due:2026-11-07\n  - [ ] sub @status:next\n\n## Waiting On\n\n- [ ] Sign-off - from finance @status:waiting @waiting:\"from finance\"\n\n## Done\n\n- [x] Venue completed:2026-11-02\n" },
+    { "id": "from-core", "op": "fromCore", "input": "- [ ] Inbox item\n- [ ] Doing @status:in-progress due:2026-11-07\n  - [ ] sub\n    - [ ] deep\n- [ ] Next @status:next\n- [ ] Later @status:someday\n- [ ] Stuck @status:waiting @waiting:\"Sam\"\n- [x] Old completed:2026-11-01\n- [x] Binned @status:trash\n", "expect": { "text": "# Tasks\n\n## Active\n\n- [ ] **Inbox item** - @status:inbox\n- [ ] **Doing** - @status:in-progress due:2026-11-07\n  - [ ] sub\n  - [ ] deep\n- [ ] **Next**\n\n## Waiting On\n\n- [ ] **Stuck** - @waiting:\"Sam\"\n\n## Someday\n\n- [ ] **Later**\n\n## Done\n\n- [x] **~~Old~~** - completed:2026-11-01\n- [x] **~~Binned~~** - @status:trash\n", "warnings": 1 } },
+    { "id": "from-core-keeps-canonical-tokens", "op": "fromCore", "input": "- [ ] A #tag @status:next @context:\"Home Office\" due:2026-11-07 @priority:1 @x-mine:1\n", "expect": { "text": "# Tasks\n\n## Active\n\n- [ ] **A #tag** - @context:\"Home Office\" due:2026-11-07 @priority:1 @x-mine:1\n\n## Waiting On\n\n## Someday\n\n## Done\n", "warnings": 0 } },
+    { "id": "from-core-drops-bodies-with-warning", "op": "fromCore", "input": "Prose\n- [ ] A @status:next\n  a note\n", "expect": { "text": "# Tasks\n\n## Active\n\n- [ ] **A**\n\n## Waiting On\n\n## Someday\n\n## Done\n", "warnings": 2 } }
+  ]
+}

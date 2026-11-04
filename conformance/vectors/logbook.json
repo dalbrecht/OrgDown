@@ -1,0 +1,24 @@
+{
+  "module": "logbook",
+  "op": "mixed",
+  "cases": [
+    { "id": "body-lines", "op": "parse", "input": "- [ ] T\n  first\n\n  second\n\nnot body", "expect": { "tasks": [{ "body": ["first", "", "second"] }] } },
+    { "id": "body-stops-at-child-task", "op": "parse", "input": "- [ ] T\n  first\n  - [ ] child\n  after", "expect": { "tasks": [{ "body": ["first"] }, { "body": [] }] } },
+    { "id": "body-stops-at-section", "op": "parse", "input": "- [ ] T\n## S\n  text", "expect": { "tasks": [{ "body": [] }] } },
+    { "id": "body-of-a-nested-task", "op": "parse", "input": "- [ ] T\n  - [ ] c\n    deep\n  shallow", "expect": { "tasks": [{ "body": [] }, { "body": ["deep"] }] } },
+    { "id": "clock-same-day", "op": "parse", "input": "- [ ] T\n  - clock:2026-11-04T09:00/10:30", "expect": { "tasks": [{ "log": [{ "type": "clock", "start": "2026-11-04T09:00", "end": "2026-11-04T10:30", "minutes": 90 }] }] } },
+    { "id": "clock-across-days", "op": "parse", "input": "- [ ] T\n  - clock:2026-11-04T23:30/2026-11-05T00:15", "expect": { "tasks": [{ "log": [{ "type": "clock", "start": "2026-11-04T23:30", "end": "2026-11-05T00:15", "minutes": 45 }] }] } },
+    { "id": "clock-running", "op": "parse", "input": "- [ ] T\n  - clock:2026-11-04T09:00/", "expect": { "tasks": [{ "log": [{ "type": "clock", "start": "2026-11-04T09:00", "end": null, "minutes": null }] }] } },
+    { "id": "clock-end-before-start-is-text", "op": "parse", "input": "- [ ] T\n  - clock:2026-11-04T09:00/08:00", "expect": { "tasks": [{ "log": [], "body": ["- clock:2026-11-04T09:00/08:00"] }] } },
+    { "id": "state-entry", "op": "parse", "input": "- [ ] T\n  - state:done from:next on:2026-11-04T09:12", "expect": { "tasks": [{ "log": [{ "type": "state", "to": "done", "from": "next", "on": "2026-11-04T09:12" }] }] } },
+    { "id": "state-entry-with-bad-state-is-text", "op": "parse", "input": "- [ ] T\n  - state:frozen from:next on:2026-11-04T09:12", "expect": { "tasks": [{ "log": [] }] } },
+
+    { "id": "clock-in", "op": "clockIn", "input": "- [ ] T\n  a note", "line": 1, "now": "2026-11-04T09:00", "expect": "- [ ] T\n  - clock:2026-11-04T09:00/\n  a note" },
+    { "id": "clock-in-nested", "op": "clockIn", "input": "- [ ] P\n  - [ ] T", "line": 2, "now": "2026-11-04T09:00", "expect": "- [ ] P\n  - [ ] T\n    - clock:2026-11-04T09:00/" },
+    { "id": "clock-in-refused-while-running", "op": "clockIn", "input": "- [ ] A\n  - clock:2026-11-04T08:00/\n- [ ] T", "line": 3, "now": "2026-11-04T09:00", "expect": { "refused": true } },
+    { "id": "clock-out", "op": "clockOut", "input": "- [ ] T\n  - clock:2026-11-04T09:00/", "line": 1, "now": "2026-11-04T10:30", "expect": "- [ ] T\n  - clock:2026-11-04T09:00/10:30" },
+    { "id": "clock-out-next-day", "op": "clockOut", "input": "- [ ] T\n  - clock:2026-11-04T23:00/", "line": 1, "now": "2026-11-05T00:30", "expect": "- [ ] T\n  - clock:2026-11-04T23:00/2026-11-05T00:30" },
+    { "id": "clock-out-refused-without-clock", "op": "clockOut", "input": "- [ ] T", "line": 1, "now": "2026-11-04T10:30", "expect": { "refused": true } },
+    { "id": "clock-out-refused-if-not-after-start", "op": "clockOut", "input": "- [ ] T\n  - clock:2026-11-04T09:00/", "line": 1, "now": "2026-11-04T09:00", "expect": { "refused": true } }
+  ]
+}
