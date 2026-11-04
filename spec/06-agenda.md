@@ -102,7 +102,8 @@ checkboxes:
 - <title><annotations> ([<path>:<line>](<path>))
 ```
 
-`<title>` is the title as written. `<path>` is the document's path, with spaces encoded as `%20`
+`<title>` is the title as written. If a row with no prefix would begin with a title like `[ ] x`, a
+backslash goes before its first bracket, so the row can't read as a task: `- \\[ ] x`. `<path>` is the document's path, with spaces encoded as `%20`
 in the link target, and `<line>` is the 1-based line. `<annotations>` depends on the group, each
 joined with `·` after a leading `—`:
 

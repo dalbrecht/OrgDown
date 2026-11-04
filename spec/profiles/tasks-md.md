@@ -90,7 +90,8 @@ it's the section's state, and the file gets [OD604](../07-diagnostics.md). Two e
 **`@status:waiting` with no reason** counts as no status at all outside `Waiting On`, as in Core.
 
 **Subtasks.** Any explicit `@status:` applies. Otherwise `[x]` is `done`, and `[ ]` takes the
-section's state.
+section's state, except in `Done`, where it's `next`, so an open subtask of a finished task stays
+open.
 
 ## 5. Writing
 
@@ -131,7 +132,8 @@ idempotent, and it only changes tasks and their note bullets:
 - A top-level task loses any leading whitespace, because the dashboard reads an indented line as a
   subtask.
 - On a top-level task, a title that isn't bold is wrapped: `- [ ] **Title** - <tokens>`. An empty
-  title isn't wrapped, here or in any other write, and an empty title isn't struck through.
+  title isn't wrapped, here or in any other write, and an empty title isn't struck through. It
+  has no note either, so bullets under it stay where they are.
 - On a top-level task, a bold title with tokens gets its dash.
 - `~~Task~~ (2026-11-02)` becomes `**~~Task~~** - completed:2026-11-02`.
 - A non-task list item in a top-level task's body, indented exactly one level, is folded into the
