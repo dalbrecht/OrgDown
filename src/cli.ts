@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** The `orgdown` command. Arguments are parsed here, and the work happens in the modules. */
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { VIEWS, regenerate, renderView, type Attrs, type ViewName } from "./agenda.js";
 import { validate, type Diagnostic } from "./diagnostics.js";
-import { markdownFiles, writeIfUnchanged } from "./files.js";
+import { appendToArchive, markdownFiles, writeIfUnchanged } from "./files.js";
 import { AgendaError, RefusedError, type Doc, type Profile } from "./model.js";
 import { add, archive, clockIn, clockOut, complete, reopen, skip, trash } from "./operations.js";
 import { parseCore } from "./parse.js";
@@ -150,8 +150,12 @@ const runHook = (input: string): number => {
   if (typeof path !== "string" || profileFor(path) === "core" || !existsSync(path)) return 0;
   const problems = validate(readFileSync(path, "utf8"), path).filter((one) => one.severity === "error");
   if (problems.length === 0) return 0;
-  const lines = problems.map(({ code, line, message }) => `line ${line}: ${code}: ${message}`);
-  process.stderr.write(`${path} has OrgDown problems. Fix them now, or tools may lose data:\n${lines.join("\n")}\n`);
+  // Codes and line numbers only: messages quote the file, and this text goes straight to the model.
+  const lines = problems.map(({ code, line }) => `line ${line}: ${code}`);
+  const name = basename(path);
+  process.stderr.write(
+    `${name} has OrgDown problems. Run orgdown validate on it and fix them, or tools may lose data:\n${lines.join("\n")}\n`,
+  );
   return 2;
 };
 
@@ -184,9 +188,8 @@ const runArchive = (path: string, line: number, options: Options): number => {
     throw new RefusedError(`line ${line} of ${path} doesn't contain "${options.expect}"`);
   }
   const { text: kept, removed } = archive(parseCore(text, path), line);
-  const existing = existsSync(target) ? readFileSync(target, "utf8") : "";
-  const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
-  writeFileSync(target, `${existing}${separator}${removed}\n`);
+  if (readFileSync(path, "utf8") !== text) throw new RefusedError(`${path} changed while it was being edited`);
+  appendToArchive(target, path, `${removed}\n`);
   writeIfUnchanged(path, text, kept);
   return 0;
 };

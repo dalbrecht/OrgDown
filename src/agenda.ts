@@ -183,6 +183,7 @@ const clockRows = (items: readonly Item[], from: string, to: string): string[] =
 };
 
 const HABIT_WINDOW_DAYS = 14;
+const MAX_WEEK_DAYS = 366;
 
 /** The history row of an open habit: spec/06-agenda.md §4. */
 const habitRow = (item: Item, today: string): string[] => {
@@ -256,8 +257,9 @@ export const checkView = (view: string, attrs: Attrs, today: string, line = 1): 
   }
   const badSort = attrs["sort"]?.split(",").find((key) => !SORT_KEYS.includes(key));
   if (badSort !== undefined) throw new AgendaError(`"${badSort}" is not a sort key`, "OD401", line);
-  if (attrs["days"] !== undefined && !/^[1-9]\d*$/.test(attrs["days"]))
-    throw new AgendaError("days must be a positive number", "OD401", line);
+  const days = attrs["days"];
+  if (days !== undefined && (!/^[1-9]\d{0,2}$/.test(days) || Number(days) > MAX_WEEK_DAYS))
+    throw new AgendaError(`days must be 1 to ${MAX_WEEK_DAYS}`, "OD401", line);
   try {
     parseQuery(attrs["match"] ?? "", today);
     for (const name of ["start", "from", "to"]) if (attrs[name] !== undefined) resolveDate(attrs[name], today);
@@ -368,13 +370,16 @@ export const findRegions = (text: string): Region[] => {
 
 /** Reads the `agenda.sources` list out of front matter. The default is every Markdown file. */
 const readSources = (text: string): string[] => {
-  const lines = text.split("\n");
-  if (stripCarriageReturn(lines[0] as string) !== "---") return ["**/*.md"];
-  const close = lines.findIndex((line, i) => i > 0 && stripCarriageReturn(line) === "---");
-  const start = lines.findIndex((line, i) => i < close && /^\s+sources:\s*$/.test(line));
-  if (close === -1 || start === -1) return ["**/*.md"];
+  const lines = text.split("\n").map(stripCarriageReturn);
+  const close = lines.findIndex((line, i) => i > 0 && line === "---");
+  if (lines[0] !== "---" || close === -1) return ["**/*.md"];
+  const agenda = lines.findIndex((line, i) => i < close && /^agenda:\s*$/.test(line));
+  if (agenda === -1) return ["**/*.md"];
+  const blockEnd = lines.findIndex((line, i) => i > agenda && (i === close || /^\S/.test(line)));
+  const start = lines.findIndex((line, i) => i > agenda && i < blockEnd && /^\s+sources:\s*$/.test(line));
+  if (start === -1) return ["**/*.md"];
   const sources: string[] = [];
-  for (const line of lines.slice(start + 1, close)) {
+  for (const line of lines.slice(start + 1, blockEnd)) {
     const item = /^\s+-\s+(?:"([^"]*)"|'([^']*)'|(.+?))\s*$/.exec(line);
     if (item === null) break;
     sources.push((item[1] ?? item[2] ?? item[3]) as string);
