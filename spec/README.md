@@ -28,18 +28,18 @@ OrgDown can toggle a checkbox without breaking it.
 
 ## Documents
 
-| Document                                     | Covers                                                 |
-| -------------------------------------------- | ------------------------------------------------------ |
-| [Core](01-core.md)                           | Lines, tasks, tokens, states, nesting, reading rules   |
-| [Planning](02-planning.md)                   | Dates, times, priority, estimates, reminders           |
-| [Recurrence](03-recurrence.md)               | Repeat rules and next-occurrence math                  |
-| [Operations](04-operations.md)               | Complete, reopen, skip, add; preserving and canonical  |
-| [Logbook](05-logbook.md)                     | Clock entries and state history                        |
-| [Agenda](06-agenda.md)                       | Views, the query language, Agenda MD files             |
-| [Diagnostics](07-diagnostics.md)             | Stable validator codes                                 |
+| Document                                      | Covers                                                |
+| --------------------------------------------- | ----------------------------------------------------- |
+| [Core](01-core.md)                            | Lines, tasks, tokens, states, nesting, reading rules  |
+| [Planning](02-planning.md)                    | Dates, times, priority, estimates, reminders          |
+| [Recurrence](03-recurrence.md)                | Repeat rules and next-occurrence math                 |
+| [Operations](04-operations.md)                | Complete, reopen, skip, add; preserving and canonical |
+| [Logbook](05-logbook.md)                      | Clock entries and state history                       |
+| [Agenda](06-agenda.md)                        | Views, the query language, Agenda MD files            |
+| [Diagnostics](07-diagnostics.md)              | Stable validator codes                                |
 | [`tasks.v2.md` profile](profiles/tasks-v2.md) | Files managed by Dopo Tasks                           |
-| [`TASKS.md` profile](profiles/tasks-md.md)   | The Claude productivity task board                     |
-| [Org mapping](org-mapping.md)                | Every Org feature: mapped, native, deferred or out     |
+| [`TASKS.md` profile](profiles/tasks-md.md)    | The Claude productivity task board                    |
+| [Org mapping](org-mapping.md)                 | Every Org feature: mapped, native, deferred or out    |
 
 ## Conformance
 
@@ -47,12 +47,12 @@ The keywords MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are used as in RFC 2119.
 implementation claims one or more of these classes. Each class is a set of modules, and each
 module has test vectors in [`conformance/vectors`](../conformance/vectors).
 
-| Class      | Requires                                                                  |
-| ---------- | ------------------------------------------------------------------------- |
-| **Reader** | Core, Planning and Recurrence parsing                                     |
-| **Writer** | Reader, plus Operations                                                   |
-| **Agenda** | Reader, plus next-occurrence math and Agenda                              |
-| **Full**   | Writer, Agenda, Logbook, and every profile the implementation advertises  |
+| Class      | Requires                                                                 |
+| ---------- | ------------------------------------------------------------------------ |
+| **Reader** | Core, Planning and Recurrence parsing                                    |
+| **Writer** | Reader, plus Operations                                                  |
+| **Agenda** | Reader, plus next-occurrence math and Agenda                             |
+| **Full**   | Writer, Agenda, Logbook, and every profile the implementation advertises |
 
 An implementation MUST pass every vector of the classes it claims, and MUST NOT claim a class
 because it passes most of them. Known deviations are listed by the implementation itself, not

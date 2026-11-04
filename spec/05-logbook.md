@@ -10,18 +10,19 @@ A task's **body** is the run of lines directly after it that are blank, or passt
 indented deeper than the task's own indentation. It ends at the first task line, section, opaque
 line, or passthrough line that isn't indented that deep. Trailing blank lines aren't part of it.
 
-The body is the task's notes. Readers expose it as `body`, a list of lines with the task's
-indentation plus two spaces removed.
+The body is the task's notes. Readers expose it as `body`, a list of lines with up to the
+task's indentation plus 2 columns of leading whitespace removed, a tab counting as 2. A tab that
+would go past that limit stays.
 
 ## 2. Log entries
 
 A body line is a **log entry** when it is a list item (`- `) whose text matches one of these:
 
-| Entry | Form                                                      | Meaning                       |
-| ----- | --------------------------------------------------------- | ----------------------------- |
-| Clock | `clock:<start>/<end>`                                     | Time worked                   |
-| Clock | `clock:<start>/`                                          | A running clock               |
-| State | `state:<to> from:<from> on:<YYYY-MM-DDTHH:MM>`            | A state change                |
+| Entry | Form                                           | Meaning         |
+| ----- | ---------------------------------------------- | --------------- |
+| Clock | `clock:<start>/<end>`                          | Time worked     |
+| Clock | `clock:<start>/`                               | A running clock |
+| State | `state:<to> from:<from> on:<YYYY-MM-DDTHH:MM>` | A state change  |
 
 `<start>` is `YYYY-MM-DDTHH:MM`. `<end>` is `HH:MM` on the same day, or a full datetime. `<end>`
 MUST be after `<start>`, and otherwise the line is plain body text. `<to>` and `<from>` are states.

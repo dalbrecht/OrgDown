@@ -6,18 +6,24 @@ A document is UTF-8 text split on `\n`. A trailing `\r` on a line is ignored for
 kept when the line is written back. Every line is exactly one of these kinds, tested in order:
 
 1. **Opaque** lines, which are never interpreted:
-   - YAML front matter: from a `---` on the first line through the next line that is `---`.
+
+   - YAML front matter: from a `---` on the first line through the next line that is `---`. If
+     there is no such line, it isn't front matter.
    - Fenced code: from a line matching `^\s*(`{3,}|~{3,})` through the next line that starts,
      after optional whitespace, with at least as many of the same character and nothing else
-     but whitespace. An unclosed fence runs to the end of the document.
+     but whitespace.
    - HTML comment blocks: a line that starts, after optional whitespace, with `<!--` and has no
      `-->` on it, through the next line containing `-->`.
    - Generated regions: from an `<!-- orgdown:view … -->` line through the next
      `<!-- /orgdown:view -->` line ([Agenda §6](06-agenda.md#6-agenda-md-files)).
+
+   An unclosed fence, comment block or region runs to the end of the document.
+
 2. **Task** lines, matching
    `^(\s*)([-*+])\s+\[([ xX])\]\s+(.*)$`.
-   Ordered list items (`1. [ ] x`) are not tasks, and neither is `- [ ]` with nothing after the
-   closing bracket's whitespace requirement, such as a line ending at `]`.
+   Ordered list items (`1. [ ] x`) are not tasks. A line that ends at the `]` isn't one either,
+   because the pattern needs whitespace there. `- [ ]` followed by a space is a task with an empty
+   title.
 3. **Section** lines, matching `^#{2,6}\s+\S`. A level-one heading is not a section.
 4. **Passthrough** lines: everything else.
 
@@ -30,6 +36,10 @@ columns. Its **parent** is the nearest task above it with a smaller depth. A sec
 the scope, so the first task after a section is a root. Opaque and passthrough lines do not end
 the scope. A task's subtree is the run of following tasks with a greater depth, ending at the
 first task of equal or lesser depth, or at a section.
+
+A task with children has a derived `progress` field, `{ \"done\", \"total\" }`, counting its direct
+children and how many are closed. It is `null` on a task with no children. Org's `[1/3]` cookie is
+this count. OrgDown derives it instead of storing it, so it can't go stale.
 
 ## 3. The parts of a task line
 
@@ -44,7 +54,7 @@ The text after the checkbox has three parts, read from the right:
 
 If the text ends with an HTML comment (`\s*<!--\s*(.*?)\s*-->\s*$`), that comment is the
 trailer. Within it, whitespace-separated `id:<value>` and `rev:<value>` set the task's `id` and
-`rev`. Only the application that owns a file mints these values
+`rev`, and the last of each wins. Only the application that owns a file mints these values
 ([profile](profiles/tasks-v2.md)). A task without an `id` is simply a task with no identity.
 
 ### 3.2 Token run
@@ -82,8 +92,8 @@ Keys are case-sensitive: `@Status:next` opens a token, but it is unknown.
 | Token       | Value                                                                     | Field           |
 | ----------- | ------------------------------------------------------------------------- | --------------- |
 | `@status:`  | `inbox` `next` `in-progress` `blocked` `waiting` `someday` `done` `trash` | `state`         |
-| `@context:` | a name, quoted if it contains whitespace                                  | `context`       |
-| `@project:` | a name; read only, for older files                                        | `project`       |
+| `@context:` | a name, quoted if it contains whitespace; may be empty                    | `context`       |
+| `@project:` | a name; read only, for older files; may be empty                          | `project`       |
 | `@kind:`    | `project` or `single-action`                                              | `nodeKind`      |
 | `@energy:`  | `low` `medium` `high`                                                     | `energy`        |
 | `@waiting:` | a reason, quoted if it contains whitespace; must not be blank             | `waitingReason` |
@@ -100,8 +110,9 @@ start with `@x-` are reserved for private extensions, and no OrgDown version wil
 
 ## 5. Reading rules
 
-- **Unknown and invalid tokens** are kept in `extraTokens`, verbatim and in order. This includes
-  a known key with a value that fails its grammar, such as `@status:frozen` or `due:2026-13-40`.
+- **Unknown and invalid tokens** are kept in `extraTokens`, verbatim and in the order they appear
+  on the line. This includes a known key with a value that fails its grammar, such as
+  `@status:frozen` or `due:2026-13-40`.
 - **Duplicates.** If a key appears more than once with valid values, the last one wins. The
   earlier ones are neither fields nor extras. An invalid duplicate is an extra, and does not
   displace a valid token.
@@ -114,16 +125,16 @@ start with `@x-` are reserved for private extensions, and no OrgDown version wil
 
 ## 6. State meanings
 
-| State         | Meaning                                                 | Checkbox | Org keyword |
-| ------------- | ------------------------------------------------------- | -------- | ----------- |
-| `inbox`       | Captured, not yet decided                               | `[ ]`    | `TODO`      |
-| `next`        | The next thing to do                                    | `[ ]`    | `NEXT`      |
-| `in-progress` | Being worked on                                         | `[ ]`    | `STARTED`   |
-| `blocked`     | Can't proceed                                           | `[ ]`    | `HOLD`      |
-| `waiting`     | Someone else has it                                     | `[ ]`    | `WAITING`   |
-| `someday`     | Maybe later                                             | `[ ]`    | `SOMEDAY`   |
-| `done`        | Finished                                                | `[x]`    | `DONE`      |
-| `trash`       | Abandoned                                               | `[x]`    | `CANCELLED` |
+| State         | Meaning                   | Checkbox | Org keyword |
+| ------------- | ------------------------- | -------- | ----------- |
+| `inbox`       | Captured, not yet decided | `[ ]`    | `TODO`      |
+| `next`        | The next thing to do      | `[ ]`    | `NEXT`      |
+| `in-progress` | Being worked on           | `[ ]`    | `STARTED`   |
+| `blocked`     | Can't proceed             | `[ ]`    | `HOLD`      |
+| `waiting`     | Someone else has it       | `[ ]`    | `WAITING`   |
+| `someday`     | Maybe later               | `[ ]`    | `SOMEDAY`   |
+| `done`        | Finished                  | `[x]`    | `DONE`      |
+| `trash`       | Abandoned                 | `[x]`    | `CANCELLED` |
 
 `done` and `trash` are the **closed** states. All others are **open**. A task that doesn't match
 this table, such as `- [ ] x @status:done`, is still read by the rules above, so its state is
@@ -142,7 +153,7 @@ is written only when the checkbox can't express the state.
 
 `@status:` `@context:` `@energy:` `@waiting:` `due:` `defer:` `@due-time:` `@warn:` `at:`
 `@remind:` `@estimate:` `@priority:` `@today:` `@every:`/`@after:` `@repeat-on:` `@repeat-until:`
-`@repeat-count:` `@repeat-catch-up:` `completed:` _extras_ `@kind:`
+`@repeat-count:` `@repeat-catch-up:` `@habit:` `completed:` _extras_ `@kind:`
 
 Every token after `defer:` comes before `@kind:` because older Dopo Tasks builds keep those
 tokens as extras, which they write in exactly that position. So the canonical form is stable

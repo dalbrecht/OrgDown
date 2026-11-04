@@ -5,14 +5,15 @@ that occurrence and creates the next ([Operations](04-operations.md)).
 
 ## 1. Tokens
 
-| Token               | Value                                                    | Rule field | Org equivalent |
-| ------------------- | -------------------------------------------------------- | ---------- | -------------- |
-| `@every:`           | `<n><d\|w\|m>`, `n ≥ 1`                                  | `mode: due`, `every`, `unit` | `+1w` |
-| `@after:`           | `<n><d\|w\|m>`, `n ≥ 1`                                  | `mode: completion`, `every`, `unit` | `.+1w` |
-| `@repeat-on:`       | comma-separated `sun` `mon` `tue` `wed` `thu` `fri` `sat` | `weekdays` | None |
-| `@repeat-until:`    | `YYYY-MM-DD`, inclusive                                  | `until` | None |
-| `@repeat-count:`    | `<n>`, `n ≥ 0`: occurrences remaining after this one     | `count` | None |
-| `@repeat-catch-up:` | `yes`                                                    | `catchUp` | `++1w` |
+| Token               | Value                                                     | Rule field                          | Org equivalent |
+| ------------------- | --------------------------------------------------------- | ----------------------------------- | -------------- |
+| `@every:`           | `<n><d\|w\|m>`, `n ≥ 1`                                   | `mode: due`, `every`, `unit`        | `+1w`          |
+| `@after:`           | `<n><d\|w\|m>`, `n ≥ 1`                                   | `mode: completion`, `every`, `unit` | `.+1w`         |
+| `@repeat-on:`       | comma-separated `sun` `mon` `tue` `wed` `thu` `fri` `sat` | `weekdays`                          | None           |
+| `@repeat-until:`    | `YYYY-MM-DD`, inclusive                                   | `until`                             | None           |
+| `@repeat-count:`    | `<n>`, `n ≥ 0`: occurrences remaining after this one      | `count`                             | None           |
+| `@repeat-catch-up:` | `yes`                                                     | `catchUp`                           | `++1w`         |
+| `@habit:`           | `yes`                                                     | `habit`                             | `STYLE: habit` |
 
 There is no yearly unit. Use `12m`. There are no hourly repeats, no "second Tuesday of the
 month" rules, and no per-occurrence exceptions.
@@ -27,11 +28,15 @@ set, or `null` if the task doesn't repeat.
 `@after:` count as one key, so the last valid one wins, and `@every:1w @after:0w` is a weekly
 rule with `@after:0w` kept as an extra. `@repeat-on:mon,funday` is malformed as a whole.
 
-**Then the assembled rule.** These tokens are moved to the extras, in the order they appear:
+**Then the assembled rule.** These tokens are extras too, at their place on the line, whether or
+not a later duplicate exists, because no rule uses them:
 
 - every `@repeat-*` token, when there is no valid `@every:` or `@after:`;
 - `@repeat-on:` with a unit other than `w`;
 - `@repeat-catch-up:` with `@after:`.
+
+`@habit:` isn't part of the rule. It sets the boolean `habit` field, which is `false` without it, and
+it needs no rule to be read.
 
 ## 3. Next occurrence
 
@@ -43,7 +48,7 @@ rule with `@after:0w` kept as an extra. `@repeat-on:mon,funday` is malformed as 
 
 The candidate is:
 
-- **With weekdays:** the first day `d` after `base`, up to `base + 7 × (every + 1)` days, whose
+- **With weekdays:** the first day `d` after `base`, up to and including `base + 7 × (every + 1)` days, whose
   weekday is in the set and, in `due` mode only, whose week is an on-week. Weeks start on Sunday.
   A day is in an on-week if the number of weeks between its week and the anchor's week is a
   multiple of `every`. If no day qualifies, the series has ended.
