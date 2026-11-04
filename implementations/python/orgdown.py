@@ -168,7 +168,7 @@ def _v_count(value):
 
 def _v_interval(value):
     match = re.fullmatch(r"([1-9][0-9]*)([dwm])", value)
-    if not match:
+    if not match or int(match.group(1)) > 9999:
         return _BAD
     unit = {"d": "day", "w": "week", "m": "month"}[match.group(2)]
     return (int(match.group(1)), unit)
@@ -748,7 +748,7 @@ def _apply_tasks_md(document):
                 elif task.checked:
                     state = "done"
                 else:
-                    state = default_state
+                    state = "next" if section == "done" else default_state
             task.state = state
             task.od604 = explicit is not None and explicit != state
             if state == "waiting" and section == "waiting on":
@@ -1323,6 +1323,8 @@ def _row(item, prefix_time=None, annotations=None):
         label = prefix_time + " " + label
     if annotations:
         label += " — " + " · ".join(annotations)
+    if prefix_time is None and re.match(r"^\[[ xX]\](\s|$)", label):
+        label = "\\" + label
     return "- %s ([%s:%d](%s))" % (label, item.path, item.task.line, _encode_path(item.path))
 
 
@@ -1474,6 +1476,8 @@ def render_view(view, attrs, docs, today):
         raise AgendaError("unknown view " + str(view))
     if view in ("day", "clock") and "match" in attrs:
         raise AgendaError("match is not allowed on this view")
+    if "days" in attrs and not (re.fullmatch(r"[0-9]+", attrs["days"]) and 1 <= int(attrs["days"]) <= 366):
+        raise AgendaError("days must be 1 to 366")
     matcher = parse_query(attrs.get("match", ""))
     items = []
     for doc in docs:
@@ -1495,12 +1499,7 @@ def render_view(view, attrs, docs, today):
         return _render(title("Today (%s)" % today), _view_day(items, today))
     if view == "week":
         start = date_attr("start", today)
-        try:
-            days = int(attrs.get("days", "7"))
-        except ValueError:
-            raise AgendaError("bad days")
-        if days < 1:
-            raise AgendaError("bad days")
+        days = int(attrs.get("days", "7"))
         return _render(title("Week of " + start), _view_week(narrowed(items), start, days))
     if view == "list":
         keys = [k.strip() for k in attrs["sort"].split(",")] if attrs.get("sort") else []
@@ -2101,7 +2100,7 @@ def fix_tasks_md(text):
                 replacements[index] = line + carriage
             continue
         folded = []
-        for offset in range(task.body_start, task.body_end):
+        for offset in range(task.body_start, task.body_end if split_profile_title(task)[0] != "" else task.body_start):
             body_line = document.lines[offset].s
             leading = body_line[: len(body_line) - len(body_line.lstrip())]
             item = re.match(r"^\s*[-*+]\s+(.*)$", body_line)
@@ -2157,7 +2156,7 @@ def to_core(text):
         for token in task.tokens:
             if token.valid and token.key in ("@status:", "@waiting:"):
                 continue
-            slot = "*extras*" if token.role == "extra" else token.key
+            slot = "*extras*" if token.role == "extra" or token.key not in CANONICAL_ORDER else token.key
             items.append((CANONICAL_ORDER.index(slot), source[token.start : token.end]))
         if task.plugin_date and not _valid_tokens(task, "completed:"):
             items.append((CANONICAL_ORDER.index("completed:"), "completed:" + task.plugin_date))
