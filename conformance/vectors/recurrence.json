@@ -47,6 +47,7 @@
     {"id": "rule-extras-keep-their-place", "op": "parse", "input": "- [ ] a @bogus:1 @repeat-on:mon @other:2 @every:1m", "expect": {"tasks": [{"extraTokens": ["@bogus:1", "@repeat-on:mon", "@other:2"]}]}},
     {"id": "habit-field", "op": "parse", "input": "- [ ] a @every:1d @habit:yes\n- [ ] b @habit:no", "expect": {"tasks": [{"habit": true}, {"habit": false, "extraTokens": ["@habit:no"]}]}},
     {"id": "last-day-of-the-weekday-window", "op": "next", "rule": {"mode": "due", "every": 1, "unit": "week", "weekdays": [3]}, "anchor": "2026-11-04", "today": "2026-11-04", "expect": "2026-11-11"},
-    {"id": "catch-up-with-weekdays-keeps-phase", "op": "next", "rule": {"mode": "due", "every": 2, "unit": "week", "weekdays": [1], "catchUp": true}, "anchor": "2026-10-05", "today": "2026-11-04", "expect": "2026-11-16"}
+    {"id": "catch-up-with-weekdays-keeps-phase", "op": "next", "rule": {"mode": "due", "every": 2, "unit": "week", "weekdays": [1], "catchUp": true}, "anchor": "2026-10-05", "today": "2026-11-04", "expect": "2026-11-16"},
+    {"id": "interval-limit", "op": "parse", "input": "- [ ] a @every:9999d\n- [ ] b @every:10000d", "expect": {"tasks": [{"recurrence": {"mode": "due", "every": 9999, "unit": "day"}}, {"recurrence": null, "extraTokens": ["@every:10000d"]}]}}
   ]
 }

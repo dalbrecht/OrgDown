@@ -78,7 +78,7 @@ const applyProfile = (task: Task, section: string | null): void => {
   task.extraTokens = task.extraTokens.filter(
     (token, i, all) => !(token === "@status:waiting" && i === all.length - 1 && rule.state === "waiting"),
   );
-  if (task.depth > 0) task.state = explicit ?? (task.checked ? "done" : rule.state);
+  if (task.depth > 0) task.state = explicit ?? (task.checked ? "done" : rule.state === "done" ? "next" : rule.state);
   else if (task.checked) task.state = explicit === "trash" && rule.allowed.includes("trash") ? "trash" : "done";
   else task.state = explicit !== undefined && rule.allowed.includes(explicit) ? explicit : rule.state;
   if (task.state === "waiting")
@@ -144,7 +144,7 @@ export const fix = (text: string): string => {
     const task = line.task;
     if (task === undefined) {
       const owner = [...doc.tasks].reverse().find((other) => other.line <= i && i < other.bodyEnd);
-      if (owner?.depth !== 0 || !isNoteBullet(line.text)) output.push(line.text);
+      if (owner?.depth !== 0 || owner.rawTitle === "" || !isNoteBullet(line.text)) output.push(line.text);
       return;
     }
     if (task.depth > 0) {

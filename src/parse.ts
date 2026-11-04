@@ -27,7 +27,7 @@ const REGION_OPEN = /^\s*<!--\s*orgdown:view\b/;
 const REGION_CLOSE = /^\s*<!--\s*\/orgdown:view\s*-->/;
 const POSITIVE = /^[1-9]\d*$/;
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-const INTERVAL = /^([1-9]\d*)([dwm])$/;
+const INTERVAL = /^([1-9]\d{0,3})([dwm])$/;
 const UNITS: Record<string, Unit> = { d: "day", w: "week", m: "month" };
 
 const stripCarriageReturn = (text: string): string => (text.endsWith("\r") ? text.slice(0, -1) : text);

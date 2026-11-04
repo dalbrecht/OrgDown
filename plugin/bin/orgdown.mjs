@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // src/cli.ts
-import { existsSync, readFileSync as readFileSync2, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, statSync as statSync2 } from "node:fs";
 import { basename, dirname as dirname2, relative as relative2, resolve, sep as sep2 } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -85,7 +85,7 @@ var REGION_OPEN = /^\s*<!--\s*orgdown:view\b/;
 var REGION_CLOSE = /^\s*<!--\s*\/orgdown:view\s*-->/;
 var POSITIVE = /^[1-9]\d*$/;
 var WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-var INTERVAL = /^([1-9]\d*)([dwm])$/;
+var INTERVAL = /^([1-9]\d{0,3})([dwm])$/;
 var UNITS = { d: "day", w: "week", m: "month" };
 var stripCarriageReturn = (text) => text.endsWith("\r") ? text.slice(0, -1) : text;
 var opaqueLines = (texts) => {
@@ -925,7 +925,7 @@ var applyProfile = (task, section) => {
   task.extraTokens = task.extraTokens.filter(
     (token, i, all) => !(token === "@status:waiting" && i === all.length - 1 && rule.state === "waiting")
   );
-  if (task.depth > 0) task.state = explicit ?? (task.checked ? "done" : rule.state);
+  if (task.depth > 0) task.state = explicit ?? (task.checked ? "done" : rule.state === "done" ? "next" : rule.state);
   else if (task.checked) task.state = explicit === "trash" && rule.allowed.includes("trash") ? "trash" : "done";
   else task.state = explicit !== void 0 && rule.allowed.includes(explicit) ? explicit : rule.state;
   if (task.state === "waiting")
@@ -974,7 +974,7 @@ var fix = (text) => {
     const task = line.task;
     if (task === void 0) {
       const owner = [...doc.tasks].reverse().find((other) => other.line <= i && i < other.bodyEnd);
-      if (owner?.depth !== 0 || !isNoteBullet(line.text)) output.push(line.text);
+      if (owner?.depth !== 0 || owner.rawTitle === "" || !isNoteBullet(line.text)) output.push(line.text);
       return;
     }
     if (task.depth > 0) {
@@ -1133,7 +1133,8 @@ var itemsOf = (docs) => docs.flatMap((doc) => doc.tasks.map((task) => ({ task, d
 var row = ({ task, doc }, annotations = [], prefix = "") => {
   const suffix = annotations.length === 0 ? "" : ` \u2014 ${annotations.join(" \xB7 ")}`;
   const location = `[${doc.path}:${task.line}](${doc.path.replaceAll(" ", "%20")})`;
-  return `- ${prefix}${task.title}${suffix} (${location})`;
+  const title = prefix === "" ? task.title.replace(/^(\[[ xX]\])(?=\s|$)/, "\\$1") : task.title;
+  return `- ${prefix}${title}${suffix} (${location})`;
 };
 var dueNote = (task) => task.due === null ? [] : [`due ${task.due}`];
 var byDue = (a, b) => {
@@ -1250,6 +1251,7 @@ var clockRows = (items, from, to) => {
   return rows.length === 0 ? [] : [...rows, "", `**Total: ${formatMinutes(total)}**`];
 };
 var HABIT_WINDOW_DAYS = 14;
+var MAX_WEEK_DAYS = 366;
 var habitRow = (item, today) => {
   const { task, doc } = item;
   if (!task.habit || isClosed(task.state)) return [];
@@ -1315,8 +1317,9 @@ var checkView = (view, attrs, today, line = 1) => {
   }
   const badSort = attrs["sort"]?.split(",").find((key) => !SORT_KEYS.includes(key));
   if (badSort !== void 0) throw new AgendaError(`"${badSort}" is not a sort key`, "OD401", line);
-  if (attrs["days"] !== void 0 && !/^[1-9]\d*$/.test(attrs["days"]))
-    throw new AgendaError("days must be a positive number", "OD401", line);
+  const days = attrs["days"];
+  if (days !== void 0 && (!/^[1-9]\d{0,2}$/.test(days) || Number(days) > MAX_WEEK_DAYS))
+    throw new AgendaError(`days must be 1 to ${MAX_WEEK_DAYS}`, "OD401", line);
   try {
     parseQuery(attrs["match"] ?? "", today);
     for (const name of ["start", "from", "to"]) if (attrs[name] !== void 0) resolveDate(attrs[name], today);
@@ -1412,13 +1415,16 @@ var findRegions = (text) => {
   return regions;
 };
 var readSources = (text) => {
-  const lines = text.split("\n");
-  if (stripCarriageReturn(lines[0]) !== "---") return ["**/*.md"];
-  const close2 = lines.findIndex((line, i) => i > 0 && stripCarriageReturn(line) === "---");
-  const start = lines.findIndex((line, i) => i < close2 && /^\s+sources:\s*$/.test(line));
-  if (close2 === -1 || start === -1) return ["**/*.md"];
+  const lines = text.split("\n").map(stripCarriageReturn);
+  const close2 = lines.findIndex((line, i) => i > 0 && line === "---");
+  if (lines[0] !== "---" || close2 === -1) return ["**/*.md"];
+  const agenda = lines.findIndex((line, i) => i < close2 && /^agenda:\s*$/.test(line));
+  if (agenda === -1) return ["**/*.md"];
+  const blockEnd2 = lines.findIndex((line, i) => i > agenda && (i === close2 || /^\S/.test(line)));
+  const start = lines.findIndex((line, i) => i > agenda && i < blockEnd2 && /^\s+sources:\s*$/.test(line));
+  if (start === -1) return ["**/*.md"];
   const sources = [];
-  for (const line of lines.slice(start + 1, close2)) {
+  for (const line of lines.slice(start + 1, blockEnd2)) {
     const item = /^\s+-\s+(?:"([^"]*)"|'([^']*)'|(.+?))\s*$/.exec(line);
     if (item === null) break;
     sources.push(item[1] ?? item[2] ?? item[3]);
@@ -1675,14 +1681,38 @@ var validate = (text, path, profile = profileFor(path)) => {
 
 // src/files.ts
 import { randomBytes } from "node:crypto";
-import { readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 var SKIPPED_FOLDERS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", "coverage"]);
 var writeIfUnchanged = (path, original, text) => {
   if (readFileSync(path, "utf8") !== original) throw new RefusedError(`${path} changed while it was being edited`);
+  const real = realpathSync(path);
+  replaceFile(real, text, statSync(real).mode);
+};
+var replaceFile = (path, text, mode) => {
   const temporary = join(dirname(path), `.${randomBytes(6).toString("hex")}.orgdown`);
-  writeFileSync(temporary, text, { mode: statSync(path).mode });
+  writeFileSync(temporary, text, { mode, flag: "wx" });
   renameSync(temporary, path);
+};
+var appendToArchive = (target, source, text) => {
+  if (!existsSync(target)) {
+    replaceFile(target, text, 420);
+    return;
+  }
+  if (lstatSync(target).isSymbolicLink()) throw new RefusedError(`${target} is a symbolic link`);
+  if (realpathSync(target) === realpathSync(source)) throw new RefusedError("a file can't be its own archive");
+  const existing = readFileSync(target, "utf8");
+  const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
+  writeIfUnchanged(target, existing, `${existing}${separator}${text}`);
 };
 var walk = (root, folder, found) => {
   for (const entry2 of readdirSync(folder, { withFileTypes: true })) {
@@ -1790,13 +1820,16 @@ var runHook = (input) => {
   } catch {
     return 0;
   }
-  if (typeof path !== "string" || profileFor(path) === "core" || !existsSync(path)) return 0;
+  if (typeof path !== "string" || profileFor(path) === "core" || !existsSync2(path)) return 0;
   const problems = validate(readFileSync2(path, "utf8"), path).filter((one) => one.severity === "error");
   if (problems.length === 0) return 0;
-  const lines = problems.map(({ code, line, message }) => `line ${line}: ${code}: ${message}`);
-  process.stderr.write(`${path} has OrgDown problems. Fix them now, or tools may lose data:
+  const lines = problems.map(({ code, line }) => `line ${line}: ${code}`);
+  const name = basename(path);
+  process.stderr.write(
+    `${name} has OrgDown problems. Run orgdown validate on it and fix them, or tools may lose data:
 ${lines.join("\n")}
-`);
+`
+  );
   return 2;
 };
 var asLine = (text) => {
@@ -1822,9 +1855,8 @@ var runArchive = (path, line, options) => {
     throw new RefusedError(`line ${line} of ${path} doesn't contain "${options.expect}"`);
   }
   const { text: kept, removed } = archive(parseCore(text, path), line);
-  const existing = existsSync(target) ? readFileSync2(target, "utf8") : "";
-  const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
-  writeFileSync2(target, `${existing}${separator}${removed}
+  if (readFileSync2(path, "utf8") !== text) throw new RefusedError(`${path} changed while it was being edited`);
+  appendToArchive(target, path, `${removed}
 `);
   writeIfUnchanged(path, text, kept);
   return 0;
@@ -1937,7 +1969,7 @@ var main = (argv, clock = /* @__PURE__ */ new Date(), stdin = () => readFileSync
   }
 };
 var entry = process.argv[1];
-if (entry !== void 0 && existsSync(entry) && /orgdown(\.mjs)?$/.test(entry)) {
+if (entry !== void 0 && existsSync2(entry) && /orgdown(\.mjs)?$/.test(entry)) {
   try {
     process.exitCode = main(process.argv.slice(2));
   } catch (error) {
