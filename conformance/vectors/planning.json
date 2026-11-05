@@ -1,0 +1,24 @@
+{
+  "module": "planning",
+  "op": "parse",
+  "cases": [
+    { "id": "priority", "input": "- [ ] a @priority:1\n- [ ] b @priority:12", "expect": { "tasks": [{ "priority": 1 }, { "priority": 12 }] } },
+    { "id": "priority-invalid", "input": "- [ ] a @priority:0\n- [ ] b @priority:-1\n- [ ] c @priority:01\n- [ ] d @priority:A", "expect": { "tasks": [{ "priority": null, "extraTokens": ["@priority:0"] }, { "priority": null, "extraTokens": ["@priority:-1"] }, { "priority": null, "extraTokens": ["@priority:01"] }, { "priority": null, "extraTokens": ["@priority:A"] }] } },
+    { "id": "today-marker", "input": "- [ ] a @today:2026-11-04", "expect": { "tasks": [{ "today": "2026-11-04" }] } },
+    { "id": "completed", "input": "- [x] a completed:2026-11-04", "expect": { "tasks": [{ "completed": "2026-11-04", "state": "done" }] } },
+    { "id": "completed-on-open-line-is-read", "input": "- [ ] a completed:2026-11-04", "expect": { "tasks": [{ "completed": "2026-11-04", "state": "inbox" }] } },
+    { "id": "due-time", "input": "- [ ] a due:2026-11-04 @due-time:14:30", "expect": { "tasks": [{ "due": "2026-11-04", "dueTime": "14:30" }] } },
+    { "id": "due-time-needs-due", "input": "- [ ] a @due-time:14:30", "expect": { "tasks": [{ "dueTime": null, "extraTokens": ["@due-time:14:30"] }] } },
+    { "id": "due-time-needs-valid-due", "input": "- [ ] a due:nope @due-time:14:30", "expect": { "tasks": [{ "dueTime": null, "extraTokens": ["due:nope", "@due-time:14:30"] }] } },
+    { "id": "due-time-invalid", "input": "- [ ] a due:2026-11-04 @due-time:24:00", "expect": { "tasks": [{ "dueTime": null, "extraTokens": ["@due-time:24:00"] }] } },
+    { "id": "warn", "input": "- [ ] a @warn:3d\n- [ ] b @warn:0d\n- [ ] c @warn:3w", "expect": { "tasks": [{ "warnDays": 3 }, { "warnDays": 0 }, { "warnDays": null, "extraTokens": ["@warn:3w"] }] } },
+    { "id": "at-day", "input": "- [ ] a at:2026-11-05", "expect": { "tasks": [{ "at": { "start": "2026-11-05" } }] } },
+    { "id": "at-start", "input": "- [ ] a at:2026-11-05T14:00", "expect": { "tasks": [{ "at": { "start": "2026-11-05T14:00" } }] } },
+    { "id": "at-same-day-range", "input": "- [ ] a at:2026-11-05T14:00/15:30", "expect": { "tasks": [{ "at": { "start": "2026-11-05T14:00", "end": "2026-11-05T15:30" } }] } },
+    { "id": "at-multi-day-range", "input": "- [ ] a at:2026-11-05T14:00/2026-11-06T09:00", "expect": { "tasks": [{ "at": { "start": "2026-11-05T14:00", "end": "2026-11-06T09:00" } }] } },
+    { "id": "at-end-before-start", "input": "- [ ] a at:2026-11-05T14:00/13:00", "expect": { "tasks": [{ "at": null, "extraTokens": ["at:2026-11-05T14:00/13:00"] }] } },
+    { "id": "at-end-equal-start", "input": "- [ ] a at:2026-11-05T14:00/14:00", "expect": { "tasks": [{ "at": null, "extraTokens": ["at:2026-11-05T14:00/14:00"] }] } },
+    { "id": "remind", "input": "- [ ] a @remind:2026-11-04\n- [ ] b @remind:2026-11-04T09:00\n- [ ] c @remind:later", "expect": { "tasks": [{ "remind": "2026-11-04" }, { "remind": "2026-11-04T09:00" }, { "remind": null, "extraTokens": ["@remind:later"] }] } },
+    { "id": "estimate", "input": "- [ ] a @estimate:30m\n- [ ] b @estimate:2h\n- [ ] c @estimate:0m\n- [ ] d @estimate:1d", "expect": { "tasks": [{ "estimateMinutes": 30 }, { "estimateMinutes": 120 }, { "estimateMinutes": null, "extraTokens": ["@estimate:0m"] }, { "estimateMinutes": null, "extraTokens": ["@estimate:1d"] }] } }
+  ]
+}

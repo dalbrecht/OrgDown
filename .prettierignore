@@ -1,0 +1,5 @@
+pnpm-lock.yaml
+coverage
+plugin/bin/orgdown.mjs
+conformance/vectors
+implementations/python
