@@ -3,16 +3,16 @@
 These files are part of the standard. An implementation runs them with its own harness, in any
 language. No code here is required.
 
-| File                       | Module      | Class        |
-| -------------------------- | ----------- | ------------ |
-| `vectors/core.json`        | Core        | Reader       |
-| `vectors/planning.json`    | Planning    | Reader       |
-| `vectors/recurrence.json`  | Recurrence  | Reader       |
-| `vectors/operations.json`  | Operations  | Writer       |
-| `vectors/logbook.json`     | Logbook     | Full         |
-| `vectors/agenda.json`      | Agenda      | Agenda       |
-| `vectors/diagnostics.json` | Diagnostics | Validators   |
-| `vectors/tasks-md.json`    | `TASKS.md`  | That profile |
+| File                       | Module      | Class                                                    |
+| -------------------------- | ----------- | -------------------------------------------------------- |
+| `vectors/core.json`        | Core        | Reader                                                   |
+| `vectors/planning.json`    | Planning    | Reader                                                   |
+| `vectors/recurrence.json`  | Recurrence  | Reader (`parse` cases), Agenda and Writer (`next` cases) |
+| `vectors/operations.json`  | Operations  | Writer                                                   |
+| `vectors/logbook.json`     | Logbook     | Full                                                     |
+| `vectors/agenda.json`      | Agenda      | Agenda                                                   |
+| `vectors/diagnostics.json` | Diagnostics | Validators                                               |
+| `vectors/tasks-md.json`    | `TASKS.md`  | That profile                                             |
 
 ## Format
 

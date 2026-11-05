@@ -206,8 +206,11 @@ export const trash = (doc: Doc, line: number, today: string): string => {
   return replaceLine(doc, line, applyEdits(raw, edits));
 };
 
+/** A task line needs whitespace after its checkbox, or it stops being a task. */
+const keepTask = (line: string): string => line.replace(/^(\s*[-*+]\s+\[[ xX]\])(?=\S|\r?$)/, "$1 ");
+
 const replaceLine = (doc: Doc, line: number, text: string): string =>
-  doc.lines.map((entry, i) => (i === line - 1 ? text : entry.text)).join("\n");
+  doc.lines.map((entry, i) => (i === line - 1 ? keepTask(text) : entry.text)).join("\n");
 
 /** Reopens a closed task. */
 export const reopen = (doc: Doc, line: number): string => {
@@ -235,23 +238,27 @@ export const skip = (doc: Doc, line: number, today: string): string => {
   return replaceLine(doc, line, applyEdits(raw, edits));
 };
 
-/** Refuses tokens no reader would use, such as `priority:1` for `@priority:1`. */
-export const refuseBadTokens = (tokens: readonly string[]): void => {
-  const task = parseCore(["- [ ] t", ...tokens].join(" ")).tasks[0];
-  const bad = task?.extraTokens.find((token) => !token.startsWith("@x-")) ?? tokens.find((token) => !opensToken(token));
-  if (bad !== undefined) throw new RefusedError(`"${bad}" is not a valid token`);
+/** Refuses a line that wouldn't read back as written: spec/04-operations.md §6. */
+export const refuseMisread = (line: string, tokens: readonly string[], describe: string): void => {
+  if (line.includes("\n")) throw new RefusedError("a task cannot contain a newline");
+  const task = parseCore(line).tasks[0];
+  const bad = task?.tokens.find((token) => !token.isUsed && !token.key.startsWith("@x-"));
+  if (bad !== undefined) throw new RefusedError(`"${bad.text}" is not a valid token`);
+  if (task?.extraTokens.some((token) => !token.startsWith("@x-")) === true) {
+    throw new RefusedError("a token here is not valid");
+  }
+  if (task?.tokens.length !== tokens.length) throw new RefusedError(`${describe} would be read as tokens`);
 };
 
 /** Adds a task in canonical form. */
 export const add = (doc: Doc, title: string, tokens: readonly string[], section?: string): string => {
-  if (title.includes("\n")) throw new RefusedError("a title cannot contain a newline");
-  const lastWord = title.trim().split(/\s+/).at(-1) ?? "";
-  if (opensToken(lastWord)) throw new RefusedError(`the title ends in "${lastWord}", which would be read as a token`);
-  refuseBadTokens(tokens);
   if (tokens.includes("@status:done") || tokens.includes("@status:trash")) {
     throw new RefusedError("a new task cannot be closed");
   }
-  return insertLine(doc, [`- [ ] ${title}`, ...canonicalTokens(tokens)].join(" "), section);
+  if (tokens.some((token) => token.startsWith("@project:"))) throw new RefusedError("@project: is read-only");
+  const line = [`- [ ] ${title}`, ...canonicalTokens(tokens)].join(" ");
+  refuseMisread(line, tokens, "the end of the title");
+  return insertLine(doc, line, section);
 };
 
 /** Inserts a finished line into a section, or at the end of the document. */
@@ -274,7 +281,10 @@ export const insertLine = (doc: Doc, text: string, section?: string): string => 
   let insertAt = end;
   while (insertAt > 0 && (texts[insertAt - 1] as string).trim() === "") insertAt -= 1;
   texts.splice(insertAt, 0, text);
-  return texts.join("\n");
+  const result = texts.join("\n");
+  if (parseCore(result).lines[insertAt]?.kind !== "task")
+    throw new RefusedError("that place is inside an opaque block");
+  return result;
 };
 
 /** Takes a closed top-level task and its subtree out of a document. */

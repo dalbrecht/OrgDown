@@ -15,7 +15,8 @@ that occurrence and creates the next ([Operations](04-operations.md)).
 | `@repeat-catch-up:` | `yes`                                                     | `catchUp`                           | `++1w`         |
 | `@habit:`           | `yes`                                                     | `habit`                             | `STYLE: habit` |
 
-`n` is at most 9999. A larger value is malformed, which bounds the work a file can cause.
+In `@every:` and `@after:`, `n` is at most 9999. A larger value is malformed, which bounds the work
+a file can cause.
 
 There is no yearly unit. Use `12m`. There are no hourly repeats, no "second Tuesday of the
 month" rules, and no per-occurrence exceptions.

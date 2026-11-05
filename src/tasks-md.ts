@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** The `TASKS.md` profile: spec/profiles/tasks-md.md. */
 import { isDate } from "./dates.js";
-import { RefusedError, isClosed, type Doc, type Line, type Profile, type State, type Task } from "./model.js";
-import { complete, canonicalTokens, insertLine, refuseBadTokens, reopen, subtreeEnd, trash } from "./operations.js";
-import { TASK, indentColumns, opensToken, parseCore, readProgress, readTags, stripCarriageReturn } from "./parse.js";
+import { isClosed, type Doc, type Line, type Profile, type State, type Task } from "./model.js";
+import { complete, canonicalTokens, insertLine, refuseMisread, reopen, subtreeEnd, trash } from "./operations.js";
+import { TASK, indentColumns, parseCore, readProgress, readTags, stripCarriageReturn } from "./parse.js";
 
 interface SectionRule {
   state: State;
@@ -24,7 +24,7 @@ const HEADING = /^## \*{0,2}(.+?)\*{0,2}\s*$/;
 
 /** Picks the profile a file's name asks for. */
 export const profileFor = (path: string): Profile => {
-  const name = path.split("/").at(-1);
+  const name = path.split(/[\\/]/).at(-1);
   if (name === "TASKS.md") return "tasks-md";
   if (name === "tasks.v2.md") return "tasks-v2";
   return "core";
@@ -105,12 +105,14 @@ const tokensText = (task: Task): string => task.tokens.map((token) => token.text
 
 const render = (checkChar: string, inner: string, note: string, tokens: string, trailer = ""): string => {
   const tail = [note, tokens].filter((part) => part !== "").join(" ");
+  if (inner === "" || inner === "~~~~") return `- [${checkChar}] ${tail}${trailer}`;
   return `- [${checkChar}] **${inner}**${tail === "" ? "" : ` - ${tail}`}${trailer}`;
 };
 
 const rawInner = (rawTitle: string): string => {
   const bold = BOLD.exec(rawTitle);
-  return (bold === null ? rawTitle : (bold[1] as string)).replace(/\s*\(\d{4}-\d{2}-\d{2}\)$/, "");
+  const text = bold === null ? rawTitle : (bold[1] as string);
+  return STRUCK.test(text) ? text.replace(/\s*\(\d{4}-\d{2}-\d{2}\)$/, "") : text;
 };
 
 /** Rewrites one top-level task in the profile's line form. */
@@ -129,12 +131,17 @@ const fixedLine = (task: Task, extraNote: readonly string[], line: string): stri
   return render(task.checked ? "x" : " ", rawInner(task.rawTitle), note, tokens, trailer === "" ? "" : ` ${trailer}`);
 };
 
+const keepEnding = (from: string, line: string): string => (from.endsWith("\r") ? `${line}\r` : line);
+
 const normalizedTask = (line: string): string =>
   line.replace(TASK, (_all, indent, _marker, _gap, box, rest) => `${indent}- [${box === "X" ? "x" : box}] ${rest}`);
 
 /** A non-task list item indented exactly one level. */
-const isNoteBullet = (line: string): boolean =>
-  Math.floor(indentColumns(line) / 2) === 1 && line.trimStart().startsWith("- ");
+const isNoteBullet = (line: string): boolean => {
+  if (Math.floor(indentColumns(line) / 2) !== 1 || !line.trimStart().startsWith("- ")) return false;
+  // Folded text sits right before the tokens, so a token-shaped ending would become one.
+  return parseCore(`- [ ] x ${line.trim().slice(2)}`).tasks[0]?.tokens.length === 0;
+};
 
 /** Upgrades a file to the profile's form: spec/profiles/tasks-md.md §6. */
 export const fix = (text: string): string => {
@@ -153,7 +160,7 @@ export const fix = (text: string): string => {
     }
     const noteLines = doc.lines.slice(task.line, task.bodyEnd).map((entry) => entry.text);
     const notes = noteLines.filter(isNoteBullet).map((text) => text.trim().slice(2).trim());
-    output.push(fixedLine(task, notes, line.text));
+    output.push(keepEnding(line.text, fixedLine(task, task.rawTitle === "" ? [] : notes, line.text)));
   });
   return output.join("\n");
 };
@@ -187,26 +194,29 @@ const moveToSection = (lines: string[], from: number, count: number, name: strin
 
 /** Puts ` - ` before tokens on a bold title, and removes a ` -` with nothing after it. */
 const tidyLine = (line: string): string => {
+  if (line.endsWith("\r")) return `${tidyLine(line.slice(0, -1))}\r`;
   const single = line.replace(/^(\s*-\s+\[.\])\s+(?=\S)/, "$1 ");
   const separated = single.replace(/^(\s*-\s+\[.\]\s+\*\*.+?\*\*)\s+(@?[a-z][a-z-]*:.*)$/i, "$1 - $2");
   return separated.replace(/(\*\*)\s+-\s*$/, "$1");
 };
 
-const strike = (line: string): string => line.replace(/^(\s*-\s+\[.\]\s+\*\*)(?!~~)(.+?)(\*\*.*)$/, "$1~~$2~~$3");
-const unstrike = (line: string): string => line.replace(/^(\s*-\s+\[.\]\s+\*\*)~~(.+?)~~(\*\*.*)$/, "$1$2$3");
+const strike = (line: string): string => line.replace(/^(\s*-\s+\[.\]\s+\*\*)(?!~~)(.+?)(\*\*[^\r]*)/, "$1~~$2~~$3");
+const unstrike = (line: string): string => line.replace(/^(\s*-\s+\[.\]\s+\*\*)~~(.+?)~~(\*\*[^\r]*)/, "$1$2$3");
 
 type CloseOperation = (doc: Doc, line: number, today: string) => string;
 
 const close = (text: string, line: number, today: string, operation: CloseOperation): string => {
   const fixedLines = text.split("\n");
   const before = parseCore(text, "TASKS.md").lines[line - 1]?.task;
-  if (before?.depth === 0) fixedLines[line - 1] = fixedLine(before, [], fixedLines[line - 1] as string);
+  const raw = fixedLines[line - 1] as string;
+  if (before?.depth === 0) fixedLines[line - 1] = keepEnding(raw, fixedLine(before, [], raw));
   const doc = parseCore(fixedLines.join("\n"), "TASKS.md");
   const task = doc.lines[line - 1]?.task;
   const count = task === undefined ? 0 : subtreeEnd(doc, task) - task.line + 1;
   const lines = operation(doc, line, today).split("\n");
   lines[line - 1] = strike(tidyLine(lines[line - 1] as string));
-  if (lines[line - 1 + count] !== undefined) lines[line - 1 + count] = tidyLine(lines[line - 1 + count] as string);
+  const hasNext = lines.length > doc.lines.length;
+  if (hasNext) lines[line - 1 + count] = tidyLine(lines[line - 1 + count] as string);
   return (task?.depth === 0 ? moveToSection(lines, line - 1, count, "done") : lines).join("\n");
 };
 
@@ -219,12 +229,20 @@ export const trashTasksMd = (text: string, line: number, today: string): string 
 
 /** Reopens a task and moves it to `Active`. */
 export const reopenTasksMd = (text: string, line: number): string => {
-  const doc = parseCore(text, "TASKS.md");
+  const fixedLines = text.split("\n");
+  const before = parseCore(text, "TASKS.md").lines[line - 1]?.task;
+  const raw = fixedLines[line - 1] as string;
+  if (before?.depth === 0) fixedLines[line - 1] = keepEnding(raw, fixedLine(before, [], raw));
+  const doc = parseCore(fixedLines.join("\n"), "TASKS.md");
   const task = doc.lines[line - 1]?.task;
   const count = task === undefined ? 0 : subtreeEnd(doc, task) - task.line + 1;
   const lines = reopen(doc, line).split("\n");
   lines[line - 1] = tidyLine(unstrike(lines[line - 1] as string));
-  return (task?.depth === 0 ? moveToSection(lines, line - 1, count, "active") : lines).join("\n");
+  if (task?.depth !== 0) return lines.join("\n");
+  if (sectionRange(lines, "active") !== null) return moveToSection(lines, line - 1, count, "active").join("\n");
+  const moved = lines.splice(line - 1, count);
+  const kept = lines.join("\n").trimEnd();
+  return `${kept}\n\n## Active\n${moved.join("\n")}\n`;
 };
 
 /** Adds a task in the profile's line form, by default to `Active`, adding that section if needed. */
@@ -235,17 +253,18 @@ export const addTasksMd = (
   section = "Active",
   note = "",
 ): string => {
-  if (title.includes("\n") || note.includes("\n")) throw new RefusedError("a title cannot contain a newline");
-  refuseBadTokens(tokens);
-  const lastWord = note.trim().split(/\s+/).at(-1) ?? "";
-  if (tokens.length === 0 && opensToken(lastWord)) {
-    throw new RefusedError(`the note ends in "${lastWord}", which would be read as a token`);
-  }
   const row = render(" ", title, note, canonicalTokens(tokens).join(" "));
+  refuseMisread(row, tokens, "the end of the note");
   const doc = parseCore(text, "TASKS.md");
-  if (doc.lines.some((line) => line.kind === "section" && headingOf(line.text) === section)) {
-    return insertLine(doc, row, section);
-  }
+  const heading = doc.lines.find((line) => line.kind === "section" && headingOf(line.text) === section);
+  if (heading !== undefined)
+    return insertLine(
+      doc,
+      row,
+      stripCarriageReturn(heading.text)
+        .replace(/^#+\s+/, "")
+        .trim(),
+    );
   return `${text.trimEnd()}${text.trim() === "" ? "" : "\n\n"}## ${section}\n${row}\n`;
 };
 
@@ -283,8 +302,16 @@ const rootStatus = (state: State): string[] => {
   return isImplied ? [] : [`@status:${state}`];
 };
 
-const subLine = (task: Task): string => {
-  const status = ["inbox", "next", "done"].includes(task.state) ? [] : [`@status:${task.state}`];
+/** What an unchecked subtask with no status reads as in a section. */
+const impliedState = (section: string): State => {
+  if (section === "Waiting On") return "waiting";
+  return section === "Someday" ? "someday" : "next";
+};
+
+const subLine = (task: Task, section: string): string => {
+  const isImplied =
+    task.state === "done" || task.state === impliedState(section) || (task.state === "inbox" && section === "Active");
+  const status = isImplied ? [] : [`@status:${task.state}`];
   const tokens = canonicalTokens([...carriedTokens(task), ...status]);
   return [`  - [${isClosed(task.state) ? "x" : " "}] ${task.rawTitle}`, ...tokens].join(" ");
 };
@@ -315,7 +342,8 @@ export const fromCore = (text: string): Conversion => {
       warnedRoot = root;
       warnings.push(`line ${task.line}: subtasks under "${root?.title}" were flattened to one level`);
     }
-    sections.get(sectionFor((root as Task).state))?.push(subLine(task));
+    const section = sectionFor((root as Task).state);
+    sections.get(section)?.push(subLine(task, section));
   }
   doc.lines.forEach((line, i) => {
     const isTemplate = line.text === "# Tasks" || SECTION_ORDER.includes(headingOf(line.text) ?? "");

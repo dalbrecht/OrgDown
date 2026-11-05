@@ -14,7 +14,8 @@ style, `[X]`, indentation and token order are not normalized.
   directly follows an empty title gets a space before it. When several are
   added, they go in the order the operation lists them.
 - To remove a key, remove every token of that key with a valid value, and the single whitespace
-  character before each. Extras stay.
+  character before each. Extras stay. A checkbox always keeps one whitespace character after it, or
+  the line would stop being a task.
 
 **Canonical** mode is for a file an application owns and rewrites whole
 ([`tasks.v2.md`](profiles/tasks-v2.md)). The application renders every task line in
@@ -28,7 +29,7 @@ changed since it was read.
 `complete(line, today)`:
 
 1. Set the checkbox to `[x]`. If it is already checked, keep the original character.
-2. If the line has a `@status:` token, set it to `done`.
+2. If the line has a `@status:` token with a valid value, set it to `done`.
 3. Set `completed:` to `today`.
 4. Remove `@priority:` and `@waiting:`. A finished task holds no rank and waits on nobody.
 5. If the task has a recurrence rule, remove its tokens from this line, including any duplicates a
@@ -90,9 +91,10 @@ after the last non-blank line of the document, and an empty document becomes jus
 `tokens` is a list of `key:value` strings, written as given in canonical order, even `@status:inbox`.
 A token that a reader would keep as an extra, other than an `@x-` extension, is refused, so a typo
 like `priority:1` fails at once instead of sitting there doing nothing. The line is always
-`[ ]`, so a closed `@status:` is refused. The title MUST NOT contain a newline. It MUST NOT end in a
-word that opens a token, or the title would be misread, so such a title is refused. A writer SHOULD
-wrap that word as inline code or a link.
+`[ ]`, so a closed `@status:` is refused, and `@project:` is read-only, so it's refused too. No title or token may contain a newline. The written line MUST read back with the same title and
+exactly the given tokens, so a title that ends in token-shaped words is refused, as is a token with
+unquoted spaces. A writer SHOULD wrap such words as inline code or a link. If the insertion point
+is inside an opaque block, such as an unclosed fence, the operation is refused.
 
 ## 7. Archiving
 

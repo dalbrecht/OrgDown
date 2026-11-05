@@ -60,7 +60,8 @@ node plugin/bin/orgdown.mjs complete TASKS.md 12 --expect "Water"
 ```
 
 Run `orgdown --help` for everything. Edits keep every other byte of the file, and they're refused if
-the file changed underneath them.
+the file changed underneath them. That check happens just before an atomic replace, so another
+writer landing in that instant can still lose its change. Don't run two writers on one file at once.
 
 ### Agenda MD
 

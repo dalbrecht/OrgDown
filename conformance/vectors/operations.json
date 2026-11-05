@@ -65,6 +65,16 @@
     {"id": "skip-moves-only-the-last-duplicate", "op": "skip", "input": "- [ ] W @every:1w due:2026-11-04 at:2026-11-04 at:2026-11-05", "line": 1, "today": "2026-11-04", "expect": "- [ ] W @every:1w due:2026-11-11 at:2026-11-04 at:2026-11-12"},
     {"id": "next-line-has-no-trailing-whitespace", "op": "complete", "input": "- [ ] W @every:1d due:2026-11-04 <!-- id:a -->", "line": 1, "today": "2026-11-04", "expect": "- [x] W due:2026-11-04 completed:2026-11-04 <!-- id:a -->\n- [ ] W @every:1d due:2026-11-05"},
     {"id": "next-line-drops-every-duplicate-without-due", "op": "complete", "input": "- [ ] W @every:1w at:2026-11-04 at:2026-11-05", "line": 1, "today": "2026-11-04", "expect": "- [x] W at:2026-11-04 at:2026-11-05 completed:2026-11-04\n- [ ] W @every:1w due:2026-11-11"},
-    {"id": "next-line-from-inbox-drops-every-status", "op": "complete", "input": "- [ ] W @status:done @status:inbox @every:1d due:2026-11-04", "line": 1, "today": "2026-11-04", "expect": "- [x] W @status:done @status:done due:2026-11-04 completed:2026-11-04\n- [ ] W @every:1d due:2026-11-05"}
+    {"id": "next-line-from-inbox-drops-every-status", "op": "complete", "input": "- [ ] W @status:done @status:inbox @every:1d due:2026-11-04", "line": 1, "today": "2026-11-04", "expect": "- [x] W @status:done @status:done due:2026-11-04 completed:2026-11-04\n- [ ] W @every:1d due:2026-11-05"},
+    {"id": "reopen-keeps-an-empty-title-a-task", "op": "reopen", "input": "- [x] @status:done completed:2026-11-04", "line": 1, "expect": "- [ ] "},
+    {"id": "add-refuses-a-token-shaped-suffix", "op": "add", "input": "", "title": "Meet @context:\"Home Office\"", "tokens": [], "expect": {"refused": true}},
+    {"id": "add-refuses-an-unquoted-token", "op": "add", "input": "", "title": "y", "tokens": ["@context:home office"], "expect": {"refused": true}},
+    {"id": "add-refuses-a-newline-in-a-token", "op": "add", "input": "", "title": "y", "tokens": ["@x-a:1\n- [ ] z"], "expect": {"refused": true}},
+    {"id": "add-refuses-an-opaque-insertion-point", "op": "add", "input": "- [ ] x\n```\ncode", "title": "y", "tokens": [], "expect": {"refused": true}},
+    {"id": "add-refuses-project", "op": "add", "input": "", "title": "y", "tokens": ["@project:P"], "expect": {"refused": true}},
+    {"id": "complete-leaves-an-invalid-status", "op": "complete", "input": "- [ ] T @status:frozen", "line": 1, "today": "2026-11-04", "expect": "- [x] T @status:frozen completed:2026-11-04"},
+    {"id": "reopen-keeps-a-task-before-an-adjacent-trailer", "op": "reopen", "input": "- [x] completed:2026-11-01<!-- id:a -->", "line": 1, "expect": "- [ ] <!-- id:a -->"},
+    {"id": "next-line-trims-space-left-by-removed-tokens", "op": "complete", "input": "- [ ] W @every:1d due:2026-11-04   @priority:1", "line": 1, "today": "2026-11-04", "expect": "- [x] W due:2026-11-04   completed:2026-11-04\n- [ ] W @every:1d due:2026-11-05"},
+    {"id": "add-refuses-a-leading-newline", "op": "add", "input": "", "title": "\nhello", "tokens": [], "expect": {"refused": true}}
   ]
 }

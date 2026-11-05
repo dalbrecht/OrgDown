@@ -3,6 +3,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
+import { isDate, isDateTime } from "./dates.js";
 import { VIEWS, regenerate, renderView, type Attrs, type ViewName } from "./agenda.js";
 import { validate, type Diagnostic } from "./diagnostics.js";
 import { appendToArchive, markdownFiles, writeIfUnchanged } from "./files.js";
@@ -257,6 +258,8 @@ export const main = (
     process.stdout.write(HELP);
     return 0;
   }
+  if (options.today !== undefined && !isDate(options.today)) throw new UsageError(`"${options.today}" is not a date`);
+  if (options.now !== undefined && !isDateTime(options.now)) throw new UsageError(`"${options.now}" is not a datetime`);
   const today = options.today ?? localDate(clock);
   const lineCommand = lineCommands(today, options.now ?? localDateTime(clock))[command];
   if (lineCommand !== undefined) {

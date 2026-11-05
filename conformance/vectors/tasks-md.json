@@ -46,7 +46,6 @@
     {"id": "subtask-explicit-status-applies", "op": "parse", "profile": "tasks-md", "input": "## Someday\n- [ ] **T**\n  - [ ] sub @status:next", "expect": {"tasks": [{"state": "someday"}, {"state": "next"}]}},
     {"id": "h3-does-not-change-section", "op": "parse", "profile": "tasks-md", "input": "## Someday\n### Done\n- [ ] **T**", "expect": {"tasks": [{"state": "someday"}]}},
     {"id": "complete-subtask-in-place", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n  - [ ] sub\n## Done", "line": 3, "today": "2026-11-04", "expect": "## Active\n- [ ] **T**\n  - [x] sub completed:2026-11-04\n## Done"},
-    {"id": "reopen-without-active-stays-put", "op": "reopen", "profile": "tasks-md", "input": "## Done\n- [x] **~~T~~** - completed:2026-11-01", "line": 2, "expect": "## Done\n- [ ] **T**"},
     {"id": "fix-leaves-empty-title-unwrapped", "op": "fix", "profile": "tasks-md", "input": "## Active\n* [X] @priority:1", "expect": "## Active\n- [x] @priority:1"},
     {"id": "complete-empty-title-is-not-struck", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] @priority:1\n## Done", "line": 2, "today": "2026-11-04", "expect": "## Active\n## Done\n- [x] completed:2026-11-04"},
     {"id": "fix-folds-tab-indented-note", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n\t- note", "expect": "## Active\n- [ ] **T** - note"},
@@ -68,6 +67,21 @@
     {"id": "progress-uses-effective-state", "op": "parse", "profile": "tasks-md", "input": "## Done\n- [x] **T**\n  - [x] a\n  - [ ] b", "expect": {"tasks": [{"progress": {"done": 1, "total": 2}}, {"state": "done"}, {"state": "next"}]}},
     {"id": "open-subtask-in-done-stays-open", "op": "parse", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n  - [ ] a\n## Done\n- [x] **U**\n  - [ ] b", "expect": {"tasks": [{"state": "next"}, {"state": "next"}, {"state": "done"}, {"state": "next"}]}},
     {"id": "fix-keeps-bullets-under-an-empty-title", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] due:2026-11-04\n  - Call Alice", "expect": "## Active\n- [ ] due:2026-11-04\n  - Call Alice"},
-    {"id": "to-core-keeps-legacy-project", "op": "toCore", "input": "## Active\n- [ ] **Ship** - @project:Work", "expect": "## Active\n- [ ] Ship @status:next @project:Work"}
+    {"id": "to-core-keeps-legacy-project", "op": "toCore", "input": "## Active\n- [ ] **Ship** - @project:Work", "expect": "## Active\n- [ ] Ship @status:next @project:Work"},
+    {"id": "reopen-without-active-adds-it", "op": "reopen", "profile": "tasks-md", "input": "## Done\n- [x] **~~T~~** - completed:2026-11-01", "line": 2, "expect": "## Done\n\n## Active\n- [ ] **T**\n"},
+    {"id": "reopen-plugin-done-form", "op": "reopen", "profile": "tasks-md", "input": "## Active\n## Done\n- [x] ~~T~~ (2026-11-02)", "line": 3, "expect": "## Active\n- [ ] **T**\n## Done"},
+    {"id": "fix-keeps-a-date-in-a-title", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] **Meeting (2026-11-02)**", "expect": "## Active\n- [ ] **Meeting (2026-11-02)**"},
+    {"id": "complete-keeps-a-date-in-a-title", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] Meeting (2026-11-02)\n## Done", "line": 2, "today": "2026-11-04", "expect": "## Active\n## Done\n- [x] **~~Meeting (2026-11-02)~~** - completed:2026-11-04"},
+    {"id": "complete-leaves-the-next-line-alone", "op": "complete", "profile": "tasks-md", "input": "## Active\n- [ ] **T**\n- [ ]   **U** @x-a:1\n## Done", "line": 2, "today": "2026-11-04", "expect": "## Active\n- [ ]   **U** @x-a:1\n## Done\n- [x] **~~T~~** - completed:2026-11-04"},
+    {"id": "crlf-survives-fix", "op": "fix", "profile": "tasks-md", "input": "## Active\r\n- [ ] T @x-a:1\r\n", "expect": "## Active\r\n- [ ] **T** - @x-a:1\r\n"},
+    {"id": "crlf-survives-complete", "op": "complete", "profile": "tasks-md", "input": "## Active\r\n- [ ] **T**\r\n## Done\r\n", "line": 2, "today": "2026-11-04", "expect": "## Active\r\n## Done\r\n- [x] **~~T~~** - completed:2026-11-04\r\n"},
+    {"id": "add-to-a-bold-section", "op": "add", "profile": "tasks-md", "input": "## **Active**\n- [ ] **a**\n## Done\n", "title": "New", "tokens": [], "expect": "## **Active**\n- [ ] **a**\n- [ ] **New**\n## Done\n"},
+    {"id": "add-refuses-a-token-shaped-note-with-tokens", "op": "add", "profile": "tasks-md", "input": "## Active\n", "title": "New", "note": "see https://x.y", "tokens": ["due:2026-11-07"], "expect": {"refused": true}},
+    {"id": "from-core-subtree-stays-together", "op": "fromCore", "input": "- [ ] P @status:next\n  - [ ] Wait @status:waiting @waiting:\"Sam\"\n- [ ] S @status:someday\n  - [ ] Go @status:next\n- [x] D completed:2026-11-01\n  - [ ] Open @status:next\n", "expect": {"text": "# Tasks\n\n## Active\n\n- [ ] **P**\n  - [ ] Wait @status:waiting @waiting:\"Sam\"\n\n## Waiting On\n\n## Someday\n\n- [ ] **S**\n  - [ ] Go @status:next\n\n## Done\n\n- [x] **~~D~~** - completed:2026-11-01\n  - [ ] Open\n", "warnings": 0}},
+    {"id": "from-core-empty-title", "op": "fromCore", "input": "- [ ] @status:next due:2026-11-04\n", "expect": {"text": "# Tasks\n\n## Active\n\n- [ ] due:2026-11-04\n\n## Waiting On\n\n## Someday\n\n## Done\n", "warnings": 0}},
+    {"id": "to-core-keeps-a-reason-outside-waiting-on", "op": "toCore", "input": "## Active\n- [ ] **T** - @waiting:\"Sam\"", "expect": "## Active\n- [ ] T @status:next @waiting:\"Sam\""},
+    {"id": "fix-keeps-a-token-shaped-bullet", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] Ship\n  - Call Alice due:2026-11-07\n  - Plain note", "expect": "## Active\n- [ ] **Ship** - Plain note\n  - Call Alice due:2026-11-07"},
+    {"id": "add-refuses-an-opaque-section", "op": "add", "profile": "tasks-md", "input": "## Active\n```\n", "title": "New", "tokens": [], "expect": {"refused": true}},
+    {"id": "fix-keeps-a-bullet-ending-in-a-quoted-token", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] Ship\n  - ask @waiting:\"a b\"", "expect": "## Active\n- [ ] **Ship**\n  - ask @waiting:\"a b\""}
   ]
 }

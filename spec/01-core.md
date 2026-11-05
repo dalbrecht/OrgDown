@@ -75,6 +75,10 @@ and the whole line is title. Tags and prose go before the tokens.
 
 The title is the words before the run, joined with single spaces.
 
+> A quoted value can't hold a word that opens a token, unless that's its first word. In
+> `@waiting:"call re: budget"` the scan stops at `re:`, so the whole line is title text. The shipped
+> dialect reads it this way too. Validators report it as [OD102](07-diagnostics.md).
+
 > A URL at the end of a line opens a token, because `https:` matches. In `- [ ] Read https://example.com/a`,
 > the URL is an unknown token, kept but not part of the title. Write `<https://example.com/a>`
 > or a Markdown link. Validators report this as [OD105](07-diagnostics.md).
