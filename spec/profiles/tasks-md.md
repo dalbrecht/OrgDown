@@ -100,8 +100,8 @@ changing one, they MUST produce the form in §2.
 
 - **Add:** `- [ ] **Title** - <note> <tokens>` at the end of the section. With no note, write
   `- [ ] **Title** - <tokens>`, and with no tokens either, `- [ ] **Title**`. `add` defaults to the
-  `Active` section, and a missing section is added at the end of the file. With no tokens, a note
-  that ends in a word that opens a token is refused, as a title is in Core. After any write, a line never ends in
+  `Active` section, and a missing section is added at the end of the file. The written line must read
+  back with the same note and tokens, as in Core, so a note ending in token-shaped words is refused. After any write, a line never ends in
   a lone dash, and a bold title with tokens always has its dash.
 - **Complete:** rewrite a top-level line in the §2 form, run
   [`complete`](../04-operations.md#2-completing) with Core's reading of the document, wrap the inner title in `~~`, and move the line and its subtasks after the last non-blank line of
@@ -109,7 +109,8 @@ changing one, they MUST produce the form in §2.
   it is. A subtask is completed where it stands, and it isn't struck through. Open subtasks of a
   completed task stay open.
 - **Reopen:** run [`reopen`](../04-operations.md#4-reopening), remove the `~~`, and move the line
-  after the last non-blank line of `Active`. With no `Active` section, it stays where it is.
+  after the last non-blank line of `Active`. With no `Active` section, one is added at the end of the file, because an
+  unchecked line in `Done` would still read as done.
 - **Status changes** are moves between sections. A writer adds `@status:` only for a refinement
   that the section can't express, such as `@status:blocked` in `Active`.
 - **Dates** are tokens: `due:2026-11-07`, not `due Friday`. Resolve words like Friday to a date
@@ -153,15 +154,15 @@ from a `[ ]` line in `Done`. The state is written as `@status:` when the checkbo
 `@waiting:` is written for every waiting task, and a date from the plugin's done form becomes
 `completed:`. Tokens are in canonical order.
 
-**From Core.** Each task goes to the section for its state. `inbox`, `next`, `in-progress` and
+**From Core.** Each root task goes to the section for its state, with its whole subtree. `inbox`, `next`, `in-progress` and
 `blocked` go to `Active`, `waiting` to `Waiting On`, `someday` to `Someday`, and `done` and `trash`
 to `Done`, keeping input order. Root tasks keep a `@status:` only in `Active`, if it isn't `next`,
 and in `Done`, if it's `trash`.
-Subtasks keep `@status:` unless it's `inbox`, `next` or `done`, so an `inbox` subtask reads back as
-`next`. Tasks deeper than one level
+A subtask keeps `@status:` unless it would read back the same in that section, or it's `inbox` in
+`Active`, which reads back as `next`. An empty title isn't wrapped. Tasks deeper than one level
 are flattened to one level, each under its root task, with one warning per root. A task's body is
 dropped, with one warning per task. Each other non-blank line is dropped, with one warning, except
-`# Tasks` and the template section headings. The output is `# Tasks`, then the four template
+`# Tasks` and the template section headings. Files keep a task line's `\r`, as in Core. The output is `# Tasks`, then the four template
 sections in template order, each block separated by a blank line, with a final newline.
 
 Identity isn't carried across. A trailer `id` is not valid on a `TASKS.md` line, because the

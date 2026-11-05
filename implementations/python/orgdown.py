@@ -121,6 +121,11 @@ def _v_name(value):
     return _unquote(value)
 
 
+def _v_project(value):
+    # The legacy @project: value is kept verbatim, quotes included.
+    return value
+
+
 def _v_reason(value):
     inner = _unquote(value)
     return inner if inner.strip() != "" else _BAD
@@ -222,7 +227,7 @@ def _v_at(value):
 VALIDATORS = {
     "@status:": _v_state,
     "@context:": _v_name,
-    "@project:": _v_name,
+    "@project:": _v_project,
     "@kind:": _v_kind,
     "@energy:": _v_energy,
     "@waiting:": _v_reason,
@@ -988,7 +993,9 @@ def reopen(text, line_number):
         if (token.key == "@status:" and token.valid and token.parsed in CLOSED_STATES) or token.key == "completed:":
             editor.remove_token(token)
     carriage = "\r" if document.lines[task.line - 1].has_cr else ""
-    return _finish(document, {task.line - 1: editor.render(task.source_text) + carriage})
+    # A checkbox always keeps one space after it, even when removed tokens left nothing behind.
+    reopened = re.sub(r"^(\s*[-*+]\s+\[[ xX]\])(?!\s)", r"\1 ", editor.render(task.source_text))
+    return _finish(document, {task.line - 1: reopened + carriage})
 
 
 def skip(text, line_number, today):
@@ -1019,6 +1026,11 @@ def _opens_token(word):
 
 def _refuse_bad_tokens(tokens):
     """Refuse any token a reader would keep as an extra, other than an @x- extension."""
+    for token in tokens:
+        if re.search(r"[\r\n]", token):
+            raise RefusedError("token contains a newline")
+        if token.startswith("@project:"):
+            raise RefusedError("@project: is legacy and cannot be added")
     probe = parse_task_line(canonical_task_line("x", list(tokens)), 1)
     if len(probe.tokens) != len(tokens) or probe.waiting_fallback:
         raise RefusedError("malformed token")
@@ -1032,6 +1044,13 @@ def _refuse_closed_status(tokens):
     for token in tokens:
         if token.startswith("@status:") and token[len("@status:") :] in CLOSED_STATES:
             raise RefusedError("a new task is always open")
+
+
+def _refuse_unless_reads_back(line_text, title, tokens):
+    """Refuse when a reader would not see exactly the given title and tokens."""
+    probe = parse_task_line(line_text, 1)
+    if probe.title != " ".join(title.split()) or sorted(t.text for t in probe.tokens) != sorted(tokens):
+        raise RefusedError("the new line would not read back as given")
 
 
 def canonical_task_line(title, tokens):
@@ -1055,6 +1074,7 @@ def add(text, section, title, tokens):
         raise RefusedError("title ends in a token-shaped word")
     _refuse_closed_status(tokens)
     new_line = canonical_task_line(title, list(tokens))
+    _refuse_unless_reads_back(new_line, title, tokens)
     document = Document(text, "core")
     lines = document.lines
     non_blank = [i for i, line in enumerate(lines) if line.s.strip() != ""]
@@ -1072,7 +1092,11 @@ def add(text, section, title, tokens):
                 filled = [i for i in range(index + 1, end) if lines[i].s.strip() != ""]
                 insert_at = (filled[-1] + 1) if filled else index + 1
                 break
-    return _finish(document, None, [(insert_at, new_line)])
+    result = _finish(document, None, [(insert_at, new_line)])
+    inserted = Document(result, "core").lines[insert_at]
+    if inserted.kind != "task":
+        raise RefusedError("the insertion point is not a task context")
+    return result
 
 
 def archive(text, line_number):
@@ -1686,7 +1710,7 @@ def _front_matter_sources(document):
             in_sources = True
         elif in_sources and re.match(r"^\s+-\s+", text):
             value = re.sub(r"^\s+-\s+", "", text).strip()
-            sources.append(_unquote(value) if value[:1] in "\"'" and value[-1:] == value[:1] else value)
+            sources.append(value[1:-1] if len(value) >= 2 and value[:1] in "\"'" and value[-1:] == value[:1] else value)
         elif text.strip() and not text.startswith(" "):
             in_agenda = in_sources = False
         elif in_sources and text.strip() and not re.match(r"^\s+-", text):
@@ -2021,8 +2045,8 @@ def complete_tasks_md(text, line_number, today):
         next_text = _one_space_after_checkbox(next_text) if next_text else None
         inserts = [(document.subtree_end(task), [next_text + carriage])] if next_text else []
         return "\n".join(_splice(document, None, {task.line - 1: done_text + carriage}, inserts))
-    done_text = _rebuild_top_line(done_text, strike=True)
-    next_text = _rebuild_top_line(next_text, strike=False) if next_text else None
+    done_text = _rebuild_top_line(done_text, strike=True) + carriage
+    next_text = _rebuild_top_line(next_text, strike=False) + carriage if next_text else None
     start = task.line - 1
     end = document.subtree_end(task)
     stay = "\n".join(_splice(document, None, {start: done_text}, [(end, [next_text])] if next_text else []))
@@ -2047,14 +2071,20 @@ def reopen_tasks_md(text, line_number):
         return "\n".join(lines)
     redocument = Document(reopened, "tasks-md")
     retask = next(t for t in redocument.tasks if t.line == line_number)
-    line_text = _rebuild_top_line(redocument.lines[line_number - 1].s, strike=False)
+    carriage = "\r" if redocument.lines[line_number - 1].has_cr else ""
+    line_text = _rebuild_top_line(redocument.lines[line_number - 1].s, strike=False, plugin_date_to_token=False) + carriage
     start = line_number - 1
     end = redocument.subtree_end(retask)
     block = [line_text] + [redocument.lines[i].raw for i in range(start + 1, end)]
     remaining = Document("\n".join(_splice(redocument, (start, end), {}, [])), "tasks-md")
     active_at = _section_insert_index(remaining, "active")
     if active_at is None:
-        return "\n".join(_splice(redocument, None, {start: line_text}, []))
+        lines = [line.raw for line in remaining.lines]
+        filled = [i for i, line in enumerate(remaining.lines) if line.s.strip()]
+        position = filled[-1] + 1 if filled else 0
+        heading = ["", "## Active"] if filled else ["## Active"]
+        joined = "\n".join(lines[:position] + [h + carriage for h in heading] + block + lines[position:])
+        return joined if joined.endswith("\n") else joined + "\n"
     return "\n".join(_splice(remaining, None, {}, [(active_at, block)]))
 
 
@@ -2066,6 +2096,8 @@ def add_tasks_md(text, section, title, tokens, note=None):
     tail = " ".join(part for part in [note or "", ordered] if part)
     if not ordered and tail and _opens_token(tail.split()[-1]):
         raise RefusedError("note ends in a token-shaped word")
+    if sorted(t.text for t in parse_task_line("- [ ] " + tail, 1).tokens) != sorted(tokens):
+        raise RefusedError("the note and tokens would not read back as given")
     if title == "":
         new_line = "- [ ] " + tail
     else:
@@ -2163,7 +2195,7 @@ def to_core(text):
         closed = task.state in CLOSED_STATES
         if task.state == "trash" or (not closed and task.state != "inbox"):
             items.append((CANONICAL_ORDER.index("@status:"), "@status:" + task.state))
-        if task.state == "waiting":
+        if task.waitingReason is not None:
             items.append((CANONICAL_ORDER.index("@waiting:"), '@waiting:"%s"' % task.waitingReason))
         items.sort(key=lambda pair: pair[0])
         title = task.title + (" - " + task.note if task.note else "")
@@ -2219,9 +2251,12 @@ def from_core(text):
             tokens.insert(0, "@status:" + task.state)
         closed = task.state in CLOSED_STATES
         title = "~~%s~~" % task.title if closed else task.title
-        line = "- [%s] **%s**" % ("x" if closed else " ", title)
-        if tokens:
-            line += " - " + " ".join(tokens)
+        if task.title == "":
+            line = "- [%s] %s" % ("x" if closed else " ", " ".join(tokens))
+        else:
+            line = "- [%s] **%s**" % ("x" if closed else " ", title)
+            if tokens:
+                line += " - " + " ".join(tokens)
         sections[home].append(line)
         for member in members:
             member_source = document.lines[member.line - 1].s
@@ -2230,7 +2265,8 @@ def from_core(text):
                 if token.valid and token.key == "@status:":
                     continue
                 member_tokens.append(member_source[token.start : token.end])
-            if member.state not in ("inbox", "next", "done"):
+            reads_back = "done" if member.state in CLOSED_STATES else ("next" if home == "Done" else SECTION_STATES[home.lower()][0])
+            if member.state != reads_back and not (home == "Active" and member.state == "inbox"):
                 member_tokens.insert(0, "@status:" + member.state)
             member_closed = member.state in CLOSED_STATES
             pieces = ([member.title] if member.title else []) + member_tokens

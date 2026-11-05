@@ -65,6 +65,8 @@
     {"id": "last-trailer-field-wins", "input": "- [ ] x <!-- id:a id:b rev:1 rev:2 -->", "expect": {"tasks": [{"id": "b", "rev": "2"}]}},
     {"id": "empty-context-is-valid", "input": "- [ ] x @context:", "expect": {"tasks": [{"context": "", "extraTokens": []}]}},
     {"id": "shadowed-duplicate-is-not-an-extra", "input": "- [ ] x @context:a @context:b", "expect": {"tasks": [{"context": "b", "extraTokens": []}]}},
-    {"id": "progress-counts-direct-children", "input": "- [ ] P\n  - [x] a\n    - [ ] deep\n  - [ ] b\n  - [ ] c @status:trash", "expect": {"tasks": [{"progress": {"done": 2, "total": 3}}, {"progress": {"done": 0, "total": 1}}, {"progress": null}, {"progress": null}, {"progress": null}]}}
+    {"id": "progress-counts-direct-children", "input": "- [ ] P\n  - [x] a\n    - [ ] deep\n  - [ ] b\n  - [ ] c @status:trash", "expect": {"tasks": [{"progress": {"done": 2, "total": 3}}, {"progress": {"done": 0, "total": 1}}, {"progress": null}, {"progress": null}, {"progress": null}]}},
+    {"id": "legacy-project-keeps-its-quotes", "input": "- [ ] T @project:\"Home Office\"", "expect": {"tasks": [{"project": "\"Home Office\""}]}},
+    {"id": "colon-word-inside-a-quoted-value", "input": "- [ ] x @waiting:\"call re: budget\"", "expect": {"tasks": [{"title": "x @waiting:\"call re: budget\"", "waitingReason": null}]}}
   ]
 }

@@ -790,7 +790,8 @@ var trash = (doc, line, today) => {
   edits.push(...appendEdit(raw, task, appended));
   return replaceLine(doc, line, applyEdits(raw, edits));
 };
-var replaceLine = (doc, line, text) => doc.lines.map((entry2, i) => i === line - 1 ? text : entry2.text).join("\n");
+var keepTask = (line) => line.replace(/^(\s*[-*+]\s+\[[ xX]\])(?=\S|\r?$)/, "$1 ");
+var replaceLine = (doc, line, text) => doc.lines.map((entry2, i) => i === line - 1 ? keepTask(text) : entry2.text).join("\n");
 var reopen = (doc, line) => {
   const task = taskAt(doc, line);
   const raw = doc.lines[line - 1]?.text;
@@ -813,20 +814,24 @@ var skip = (doc, line, today) => {
   edits.push(...appendEdit(raw, task, appended));
   return replaceLine(doc, line, applyEdits(raw, edits));
 };
-var refuseBadTokens = (tokens) => {
-  const task = parseCore(["- [ ] t", ...tokens].join(" ")).tasks[0];
-  const bad = task?.extraTokens.find((token) => !token.startsWith("@x-")) ?? tokens.find((token) => !opensToken(token));
-  if (bad !== void 0) throw new RefusedError(`"${bad}" is not a valid token`);
+var refuseMisread = (line, tokens, describe) => {
+  if (line.includes("\n")) throw new RefusedError("a task cannot contain a newline");
+  const task = parseCore(line).tasks[0];
+  const bad = task?.tokens.find((token) => !token.isUsed && !token.key.startsWith("@x-"));
+  if (bad !== void 0) throw new RefusedError(`"${bad.text}" is not a valid token`);
+  if (task?.extraTokens.some((token) => !token.startsWith("@x-")) === true) {
+    throw new RefusedError("a token here is not valid");
+  }
+  if (task?.tokens.length !== tokens.length) throw new RefusedError(`${describe} would be read as tokens`);
 };
 var add = (doc, title, tokens, section) => {
-  if (title.includes("\n")) throw new RefusedError("a title cannot contain a newline");
-  const lastWord = title.trim().split(/\s+/).at(-1) ?? "";
-  if (opensToken(lastWord)) throw new RefusedError(`the title ends in "${lastWord}", which would be read as a token`);
-  refuseBadTokens(tokens);
   if (tokens.includes("@status:done") || tokens.includes("@status:trash")) {
     throw new RefusedError("a new task cannot be closed");
   }
-  return insertLine(doc, [`- [ ] ${title}`, ...canonicalTokens(tokens)].join(" "), section);
+  if (tokens.some((token) => token.startsWith("@project:"))) throw new RefusedError("@project: is read-only");
+  const line = [`- [ ] ${title}`, ...canonicalTokens(tokens)].join(" ");
+  refuseMisread(line, tokens, "the end of the title");
+  return insertLine(doc, line, section);
 };
 var insertLine = (doc, text, section) => {
   const texts = doc.lines.map((line) => line.text);
@@ -841,7 +846,10 @@ var insertLine = (doc, text, section) => {
   let insertAt = end;
   while (insertAt > 0 && texts[insertAt - 1].trim() === "") insertAt -= 1;
   texts.splice(insertAt, 0, text);
-  return texts.join("\n");
+  const result = texts.join("\n");
+  if (parseCore(result).lines[insertAt]?.kind !== "task")
+    throw new RefusedError("that place is inside an opaque block");
+  return result;
 };
 var archive = (doc, line) => {
   const task = taskAt(doc, line);
@@ -888,7 +896,7 @@ var BOLD = /^\*\*(.+?)\*\*(.*)$/;
 var STRUCK = /^~~(.+?)~~(?:\s*\((\d{4}-\d{2}-\d{2})\))?$/;
 var HEADING = /^## \*{0,2}(.+?)\*{0,2}\s*$/;
 var profileFor = (path) => {
-  const name = path.split("/").at(-1);
+  const name = path.split(/[\\/]/).at(-1);
   if (name === "TASKS.md") return "tasks-md";
   if (name === "tasks.v2.md") return "tasks-v2";
   return "core";
@@ -945,11 +953,13 @@ var parseAuto = (text, path) => profileFor(path) === "tasks-md" ? parseTasksMd(t
 var tokensText = (task) => task.tokens.map((token) => token.text).join(" ");
 var render = (checkChar, inner, note, tokens, trailer = "") => {
   const tail = [note, tokens].filter((part) => part !== "").join(" ");
+  if (inner === "" || inner === "~~~~") return `- [${checkChar}] ${tail}${trailer}`;
   return `- [${checkChar}] **${inner}**${tail === "" ? "" : ` - ${tail}`}${trailer}`;
 };
 var rawInner = (rawTitle) => {
   const bold = BOLD.exec(rawTitle);
-  return (bold === null ? rawTitle : bold[1]).replace(/\s*\(\d{4}-\d{2}-\d{2}\)$/, "");
+  const text = bold === null ? rawTitle : bold[1];
+  return STRUCK.test(text) ? text.replace(/\s*\(\d{4}-\d{2}-\d{2}\)$/, "") : text;
 };
 var fixedLine = (task, extraNote, line) => {
   if (task.rawTitle === "") {
@@ -965,6 +975,7 @@ var fixedLine = (task, extraNote, line) => {
   const trailer = stripCarriageReturn(line).slice(task.contentEnd).trim();
   return render(task.checked ? "x" : " ", rawInner(task.rawTitle), note, tokens, trailer === "" ? "" : ` ${trailer}`);
 };
+var keepEnding = (from, line) => from.endsWith("\r") ? `${line}\r` : line;
 var normalizedTask = (line) => line.replace(TASK, (_all, indent, _marker, _gap, box, rest) => `${indent}- [${box === "X" ? "x" : box}] ${rest}`);
 var isNoteBullet = (line) => Math.floor(indentColumns(line) / 2) === 1 && line.trimStart().startsWith("- ");
 var fix = (text) => {
@@ -983,7 +994,7 @@ var fix = (text) => {
     }
     const noteLines = doc.lines.slice(task.line, task.bodyEnd).map((entry2) => entry2.text);
     const notes = noteLines.filter(isNoteBullet).map((text2) => text2.trim().slice(2).trim());
-    output.push(fixedLine(task, notes, line.text));
+    output.push(keepEnding(line.text, fixedLine(task, task.rawTitle === "" ? [] : notes, line.text)));
   });
   return output.join("\n");
 };
@@ -1009,46 +1020,60 @@ var moveToSection = (lines, from, count, name) => {
   return without;
 };
 var tidyLine = (line) => {
+  if (line.endsWith("\r")) return `${tidyLine(line.slice(0, -1))}\r`;
   const single = line.replace(/^(\s*-\s+\[.\])\s+(?=\S)/, "$1 ");
   const separated = single.replace(/^(\s*-\s+\[.\]\s+\*\*.+?\*\*)\s+(@?[a-z][a-z-]*:.*)$/i, "$1 - $2");
   return separated.replace(/(\*\*)\s+-\s*$/, "$1");
 };
-var strike = (line) => line.replace(/^(\s*-\s+\[.\]\s+\*\*)(?!~~)(.+?)(\*\*.*)$/, "$1~~$2~~$3");
-var unstrike = (line) => line.replace(/^(\s*-\s+\[.\]\s+\*\*)~~(.+?)~~(\*\*.*)$/, "$1$2$3");
+var strike = (line) => line.replace(/^(\s*-\s+\[.\]\s+\*\*)(?!~~)(.+?)(\*\*[^\r]*)/, "$1~~$2~~$3");
+var unstrike = (line) => line.replace(/^(\s*-\s+\[.\]\s+\*\*)~~(.+?)~~(\*\*[^\r]*)/, "$1$2$3");
 var close = (text, line, today, operation) => {
   const fixedLines = text.split("\n");
   const before = parseCore(text, "TASKS.md").lines[line - 1]?.task;
-  if (before?.depth === 0) fixedLines[line - 1] = fixedLine(before, [], fixedLines[line - 1]);
+  const raw = fixedLines[line - 1];
+  if (before?.depth === 0) fixedLines[line - 1] = keepEnding(raw, fixedLine(before, [], raw));
   const doc = parseCore(fixedLines.join("\n"), "TASKS.md");
   const task = doc.lines[line - 1]?.task;
   const count = task === void 0 ? 0 : subtreeEnd(doc, task) - task.line + 1;
   const lines = operation(doc, line, today).split("\n");
   lines[line - 1] = strike(tidyLine(lines[line - 1]));
-  if (lines[line - 1 + count] !== void 0) lines[line - 1 + count] = tidyLine(lines[line - 1 + count]);
+  const hasNext = lines.length > doc.lines.length;
+  if (hasNext) lines[line - 1 + count] = tidyLine(lines[line - 1 + count]);
   return (task?.depth === 0 ? moveToSection(lines, line - 1, count, "done") : lines).join("\n");
 };
 var completeTasksMd = (text, line, today) => close(text, line, today, complete);
 var trashTasksMd = (text, line, today) => close(text, line, today, trash);
 var reopenTasksMd = (text, line) => {
-  const doc = parseCore(text, "TASKS.md");
+  const fixedLines = text.split("\n");
+  const before = parseCore(text, "TASKS.md").lines[line - 1]?.task;
+  const raw = fixedLines[line - 1];
+  if (before?.depth === 0) fixedLines[line - 1] = keepEnding(raw, fixedLine(before, [], raw));
+  const doc = parseCore(fixedLines.join("\n"), "TASKS.md");
   const task = doc.lines[line - 1]?.task;
   const count = task === void 0 ? 0 : subtreeEnd(doc, task) - task.line + 1;
   const lines = reopen(doc, line).split("\n");
   lines[line - 1] = tidyLine(unstrike(lines[line - 1]));
-  return (task?.depth === 0 ? moveToSection(lines, line - 1, count, "active") : lines).join("\n");
+  if (task?.depth !== 0) return lines.join("\n");
+  if (sectionRange(lines, "active") !== null) return moveToSection(lines, line - 1, count, "active").join("\n");
+  const moved = lines.splice(line - 1, count);
+  const kept = lines.join("\n").trimEnd();
+  return `${kept}
+
+## Active
+${moved.join("\n")}
+`;
 };
 var addTasksMd = (text, title, tokens, section = "Active", note = "") => {
-  if (title.includes("\n") || note.includes("\n")) throw new RefusedError("a title cannot contain a newline");
-  refuseBadTokens(tokens);
-  const lastWord = note.trim().split(/\s+/).at(-1) ?? "";
-  if (tokens.length === 0 && opensToken(lastWord)) {
-    throw new RefusedError(`the note ends in "${lastWord}", which would be read as a token`);
-  }
   const row2 = render(" ", title, note, canonicalTokens(tokens).join(" "));
+  refuseMisread(row2, tokens, "the end of the note");
   const doc = parseCore(text, "TASKS.md");
-  if (doc.lines.some((line) => line.kind === "section" && headingOf(line.text) === section)) {
-    return insertLine(doc, row2, section);
-  }
+  const heading = doc.lines.find((line) => line.kind === "section" && headingOf(line.text) === section);
+  if (heading !== void 0)
+    return insertLine(
+      doc,
+      row2,
+      stripCarriageReturn(heading.text).replace(/^#+\s+/, "").trim()
+    );
   return `${text.trimEnd()}${text.trim() === "" ? "" : "\n\n"}## ${section}
 ${row2}
 `;
@@ -1078,8 +1103,13 @@ var rootStatus = (state) => {
   const isImplied = state === "next" || state === "waiting" || state === "someday" || state === "done";
   return isImplied ? [] : [`@status:${state}`];
 };
-var subLine = (task) => {
-  const status = ["inbox", "next", "done"].includes(task.state) ? [] : [`@status:${task.state}`];
+var impliedState = (section) => {
+  if (section === "Waiting On") return "waiting";
+  return section === "Someday" ? "someday" : "next";
+};
+var subLine = (task, section) => {
+  const isImplied = task.state === "done" || task.state === impliedState(section) || task.state === "inbox" && section === "Active";
+  const status = isImplied ? [] : [`@status:${task.state}`];
   const tokens = canonicalTokens([...carriedTokens(task), ...status]);
   return [`  - [${isClosed(task.state) ? "x" : " "}] ${task.rawTitle}`, ...tokens].join(" ");
 };
@@ -1103,7 +1133,8 @@ var fromCore = (text) => {
       warnedRoot = root;
       warnings.push(`line ${task.line}: subtasks under "${root?.title}" were flattened to one level`);
     }
-    sections.get(sectionFor(root.state))?.push(subLine(task));
+    const section = sectionFor(root.state);
+    sections.get(section)?.push(subLine(task, section));
   }
   doc.lines.forEach((line, i) => {
     const isTemplate = line.text === "# Tasks" || SECTION_ORDER.includes(headingOf(line.text) ?? "");
@@ -1682,6 +1713,7 @@ var validate = (text, path, profile = profileFor(path)) => {
 // src/files.ts
 import { randomBytes } from "node:crypto";
 import {
+  appendFileSync,
   existsSync,
   lstatSync,
   readFileSync,
@@ -1711,8 +1743,7 @@ var appendToArchive = (target, source, text) => {
   if (lstatSync(target).isSymbolicLink()) throw new RefusedError(`${target} is a symbolic link`);
   if (realpathSync(target) === realpathSync(source)) throw new RefusedError("a file can't be its own archive");
   const existing = readFileSync(target, "utf8");
-  const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
-  writeIfUnchanged(target, existing, `${existing}${separator}${text}`);
+  appendFileSync(target, `${existing === "" || existing.endsWith("\n") ? "" : "\n"}${text}`);
 };
 var walk = (root, folder, found) => {
   for (const entry2 of readdirSync(folder, { withFileTypes: true })) {
@@ -1919,6 +1950,8 @@ var main = (argv, clock = /* @__PURE__ */ new Date(), stdin = () => readFileSync
     process.stdout.write(HELP);
     return 0;
   }
+  if (options.today !== void 0 && !isDate(options.today)) throw new UsageError(`"${options.today}" is not a date`);
+  if (options.now !== void 0 && !isDateTime(options.now)) throw new UsageError(`"${options.now}" is not a datetime`);
   const today = options.today ?? localDate(clock);
   const lineCommand = lineCommands(today, options.now ?? localDateTime(clock))[command];
   if (lineCommand !== void 0) {

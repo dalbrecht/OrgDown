@@ -2,6 +2,7 @@
 /** The file boundary, kept thin: everything above it works on strings. */
 import { randomBytes } from "node:crypto";
 import {
+  appendFileSync,
   existsSync,
   lstatSync,
   readFileSync,
@@ -39,8 +40,8 @@ export const appendToArchive = (target: string, source: string, text: string): v
   if (lstatSync(target).isSymbolicLink()) throw new RefusedError(`${target} is a symbolic link`);
   if (realpathSync(target) === realpathSync(source)) throw new RefusedError("a file can't be its own archive");
   const existing = readFileSync(target, "utf8");
-  const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
-  writeIfUnchanged(target, existing, `${existing}${separator}${text}`);
+  // Appending, not rewriting, so two archive runs can't discard each other's tasks.
+  appendFileSync(target, `${existing === "" || existing.endsWith("\n") ? "" : "\n"}${text}`);
 };
 
 const walk = (root: string, folder: string, found: SourceFile[]): void => {
