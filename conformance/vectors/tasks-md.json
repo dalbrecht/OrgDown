@@ -79,6 +79,9 @@
     {"id": "add-refuses-a-token-shaped-note-with-tokens", "op": "add", "profile": "tasks-md", "input": "## Active\n", "title": "New", "note": "see https://x.y", "tokens": ["due:2026-11-07"], "expect": {"refused": true}},
     {"id": "from-core-subtree-stays-together", "op": "fromCore", "input": "- [ ] P @status:next\n  - [ ] Wait @status:waiting @waiting:\"Sam\"\n- [ ] S @status:someday\n  - [ ] Go @status:next\n- [x] D completed:2026-11-01\n  - [ ] Open @status:next\n", "expect": {"text": "# Tasks\n\n## Active\n\n- [ ] **P**\n  - [ ] Wait @status:waiting @waiting:\"Sam\"\n\n## Waiting On\n\n## Someday\n\n- [ ] **S**\n  - [ ] Go @status:next\n\n## Done\n\n- [x] **~~D~~** - completed:2026-11-01\n  - [ ] Open\n", "warnings": 0}},
     {"id": "from-core-empty-title", "op": "fromCore", "input": "- [ ] @status:next due:2026-11-04\n", "expect": {"text": "# Tasks\n\n## Active\n\n- [ ] due:2026-11-04\n\n## Waiting On\n\n## Someday\n\n## Done\n", "warnings": 0}},
-    {"id": "to-core-keeps-a-reason-outside-waiting-on", "op": "toCore", "input": "## Active\n- [ ] **T** - @waiting:\"Sam\"", "expect": "## Active\n- [ ] T @status:next @waiting:\"Sam\""}
+    {"id": "to-core-keeps-a-reason-outside-waiting-on", "op": "toCore", "input": "## Active\n- [ ] **T** - @waiting:\"Sam\"", "expect": "## Active\n- [ ] T @status:next @waiting:\"Sam\""},
+    {"id": "fix-keeps-a-token-shaped-bullet", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] Ship\n  - Call Alice due:2026-11-07\n  - Plain note", "expect": "## Active\n- [ ] **Ship** - Plain note\n  - Call Alice due:2026-11-07"},
+    {"id": "add-refuses-an-opaque-section", "op": "add", "profile": "tasks-md", "input": "## Active\n```\n", "title": "New", "tokens": [], "expect": {"refused": true}},
+    {"id": "fix-keeps-a-bullet-ending-in-a-quoted-token", "op": "fix", "profile": "tasks-md", "input": "## Active\n- [ ] Ship\n  - ask @waiting:\"a b\"", "expect": "## Active\n- [ ] **Ship**\n  - ask @waiting:\"a b\""}
   ]
 }

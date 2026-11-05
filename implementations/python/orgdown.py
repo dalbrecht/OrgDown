@@ -2106,14 +2106,20 @@ def add_tasks_md(text, section, title, tokens, note=None):
     document = Document(text, "tasks-md")
     at = _section_insert_index(document, name.lower())
     if at is not None:
-        return "\n".join(_splice(document, None, {}, [(at, [new_line])]))
+        result = "\n".join(_splice(document, None, {}, [(at, [new_line])]))
+        if Document(result, "tasks-md").lines[at].kind != "task":
+            raise RefusedError("the insertion point is not a task context")
+        return result
     lines = [line.raw for line in document.lines]
     filled = [i for i, line in enumerate(document.lines) if line.s.strip()]
     addition = ["", "## " + name, new_line] if filled else ["## " + name, new_line]
     position = filled[-1] + 1 if filled else 0
     if not filled:
         return "\n".join(addition) + "\n" if text == "" else "\n".join(addition + lines)
-    return "\n".join(lines[:position] + addition + lines[position:])
+    result = "\n".join(lines[:position] + addition + lines[position:])
+    if Document(result, "tasks-md").lines[position + len(addition) - 1].kind != "task":
+        raise RefusedError("the insertion point is not a task context")
+    return result
 
 
 def fix_tasks_md(text):
@@ -2136,7 +2142,7 @@ def fix_tasks_md(text):
             body_line = document.lines[offset].s
             leading = body_line[: len(body_line) - len(body_line.lstrip())]
             item = re.match(r"^\s*[-*+]\s+(.*)$", body_line)
-            if item and _columns(leading) // 2 == task.depth + 1:
+            if item and _columns(leading) // 2 == task.depth + 1 and not parse_task_line("- [ ] " + item.group(1).strip(), 1).tokens:
                 folded.append(item.group(1).strip())
                 removed.add(offset)
         inner, rest, plugin_date, is_bold = split_profile_title(task)

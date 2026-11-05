@@ -137,8 +137,11 @@ const normalizedTask = (line: string): string =>
   line.replace(TASK, (_all, indent, _marker, _gap, box, rest) => `${indent}- [${box === "X" ? "x" : box}] ${rest}`);
 
 /** A non-task list item indented exactly one level. */
-const isNoteBullet = (line: string): boolean =>
-  Math.floor(indentColumns(line) / 2) === 1 && line.trimStart().startsWith("- ");
+const isNoteBullet = (line: string): boolean => {
+  if (Math.floor(indentColumns(line) / 2) !== 1 || !line.trimStart().startsWith("- ")) return false;
+  // Folded text sits right before the tokens, so a token-shaped ending would become one.
+  return parseCore(`- [ ] x ${line.trim().slice(2)}`).tasks[0]?.tokens.length === 0;
+};
 
 /** Upgrades a file to the profile's form: spec/profiles/tasks-md.md §6. */
 export const fix = (text: string): string => {

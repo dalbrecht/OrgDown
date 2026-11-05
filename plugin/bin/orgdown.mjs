@@ -977,7 +977,10 @@ var fixedLine = (task, extraNote, line) => {
 };
 var keepEnding = (from, line) => from.endsWith("\r") ? `${line}\r` : line;
 var normalizedTask = (line) => line.replace(TASK, (_all, indent, _marker, _gap, box, rest) => `${indent}- [${box === "X" ? "x" : box}] ${rest}`);
-var isNoteBullet = (line) => Math.floor(indentColumns(line) / 2) === 1 && line.trimStart().startsWith("- ");
+var isNoteBullet = (line) => {
+  if (Math.floor(indentColumns(line) / 2) !== 1 || !line.trimStart().startsWith("- ")) return false;
+  return parseCore(`- [ ] x ${line.trim().slice(2)}`).tasks[0]?.tokens.length === 0;
+};
 var fix = (text) => {
   const doc = parseCore(text, "TASKS.md");
   const output = [];

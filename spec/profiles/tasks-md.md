@@ -138,8 +138,9 @@ idempotent, and it only changes tasks and their note bullets:
 - On a top-level task, a bold title with tokens gets its dash.
 - `~~Task~~ (2026-11-02)` becomes `**~~Task~~** - completed:2026-11-02`.
 - A non-task list item in a top-level task's body, indented exactly one level, is folded into the
-  note, joined with `; `, and removed. The note keeps its place before the tokens. More deeply
-  indented bullets stay, for the validator to report.
+  note, joined with `; `, and removed. The note keeps its place before the tokens. More deeply indented
+  bullets stay, for the validator to report, and so does a bullet ending in token-shaped words,
+  which would turn into tokens.
 
 Prose and sub-headings are left for the author, because moving them is a judgment call.
 
